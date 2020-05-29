@@ -1,5 +1,4 @@
 ##### Setup -----
-
 library(shiny)
 library(rgl)
 library(MASS)
@@ -8,10 +7,13 @@ library(tictoc)
 source('ui.r', local = TRUE)
 set.seed(20200527)
 options(rgl.useNULL=TRUE) ## Must be executed BEFORE rgl is loaded on headless devices.
+### exmples: 
+# http://www.sthda.com/english/wiki/a-complete-guide-to-3d-visualization-device-system-in-r-r-software-and-data-visualization
+
+
 
 ##### Global initialize -----
-### Above server scope and not reactive
-
+## Above server scope and not reactive
 ## parameters:
 ptSize        <- 1.5 ## size (radius? diameter?) of data points
 surfaceAlpha  <- .3  ## Opacity of the surface/grid in [0-1], fully transparent and opaque respectively
