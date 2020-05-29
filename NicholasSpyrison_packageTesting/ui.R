@@ -1,8 +1,8 @@
 #' Minimal shiny UI for respective server.r
 
 ### Following: https://stackoverflow.com/questions/39363384/how-to-remove-unwanted-text-output-with-shiny-rgl
-# shiny::runApp(system.file("shinyDemo", package = "rgl"), launch.browser = TRUE)
-# shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE)
+# shiny::runApp(system.file("shinyDemo", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
+# shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 
 ##### rgl -----
 rgl_panel <- tabPanel("rgl", fluidPage(
