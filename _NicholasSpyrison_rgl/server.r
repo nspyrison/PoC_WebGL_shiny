@@ -9,7 +9,7 @@ set.seed(20200527)
 options(rgl.useNULL=TRUE) ## Must be executed BEFORE rgl is loaded on headless devices.
 ### exmples: 
 # http://www.sthda.com/english/wiki/a-complete-guide-to-3d-visualization-device-system-in-r-r-software-and-data-visualization
-
+# https://cran.r-project.org/web/packages/rgl/vignettes/rgl.html
 
 
 ##### Global initialize -----
@@ -28,6 +28,8 @@ dat <- { ## numeric data, rescaled flea
 n     <- nrow(dat)
 ptCol <- spinifex::col_of(tourr::flea$species)
 ptPch <- spinifex::pch_of(tourr::flea$species)
+# w <- h <- 100 ## height and width of the rgl widget in pixels, 
+## w/h not working atm.
 
 pca_bas  <- prcomp(x = dat)$rotation ## p-dim basis of PCA on mat_dat()
 #pca_m_sp <- create_manip_space(basis = pca_bas[,1:2], manip_var = 4) ## 3d manip space on PCA bas
@@ -63,12 +65,9 @@ server <- shinyServer(function(input, output) {
   ##### pca_de2d =====
   ## Can't seem to get type="wire" and some other options working
   try(rgl.close())
-  plot3d(pca_proj$PC1, pca_proj$PC2, rep(0, n), col = col)
-  persp3d(pca_de2d,  add = T,
+  plot3d(pca_proj$PC1, pca_proj$PC2, rep(0, n), col = ptCol)
+  persp3d(pca_de2d, add = T,
           col = "red", alpha = surfaceAlpha, shininess = surfaceShine)
-
-  
-  
   scene_pca_de2d <- scene3d()
   
   
@@ -102,50 +101,33 @@ server <- shinyServer(function(input, output) {
     rglwidget(scene_fitDistr)
   )
   
-  ##### surface3d =====
+  ##### function surfaces =====
   ### following example for surf3D in: 
   ## browseURL("https://cran.r-project.org/web/packages/plot3D/vignettes/plot3D.pdf")
   try(rgl.close())
-  # mfrow3d(2, 2, sharedMouse = FALSE)
-  # ## Shape 1
-  # M <- mesh(seq(0, 6 * pi, length.out = 80),
-  #           seq(pi / 3, pi, length.out = 80))
-  # u <- M$x; v <- M$y
-  # x <- u / 2 * sin(v) * cos(u)
-  # y <- u / 2 * sin(v) * sin(u)
-  # z <- u / 2 * cos(v)
-  # .col <- scales::rescale(z)
-  # message(.col)
-  # surface3d(x, y, z, col = .col)
-  # next3d()
-  # ## Shape 2
-  # M <- mesh(seq(0, 2 * pi, length.out = 80),
-  #           seq(0, 2 * pi, length.out = 80))
-  # u <- M$x; v <- M$y
-  # x <- sin(u); y <- sin(v); z <- sin(u + v)
-  # surface3d(x, y, z, col = scales::rescale(z))
-  # next3d()
-  # ## Shape 3
-  # x <- (3 + cos(v / 2) * sin(u) - sin(v / 2) * sin(2 * u)) * cos(v)
-  # y <- (3 + cos(v / 2) * sin(u) - sin(v / 2) * sin(2 * u)) * sin(v)
-  # z <- sin(v / 2) * sin(u) + cos(v / 2) * sin(2 * u)
-  # surface3d(x, y, z, col = z)
-  # next3d()
-  # ## Shape 4: more complex color var
-  # M <- mesh(seq(-13.2, 13.2, length.out = 50),
-  #           seq(-37.4, 37.4, length.out = 50))
-  # u <- M$x; v <- M$y
-  # b <- 0.4; r <- 1 - b^2; w <- sqrt(r)
-  # D <- b * ((w * cosh(b * u))^2 + (b * sin(w * v))^2)
-  # x <- -u + (2 * r * cosh(b * u) * sinh(b * u)) / D
-  # y <- (2 * w * cosh(b * u) * (-(w * cos(v) * cos(w * v)) - sin(v) * sin(w * v))) / D
-  # z <- (2 * w * cosh(b * u) * (-(w * sin(v) * cos(w * v)) + cos(v) * sin(w * v))) / D
-  # surface3d(x, y, z, col = scales::rescale(sqrt(x + 8.3)))
-  # scene_surface3d <- scene3d()
-  # 
-  # output$widget_surface3d <- renderRglwidget(
-  #   rglwidget(scene_surface3d)
-  # )
+  
+  mfrow3d(1, 2, sharedMouse = FALSE)
+  .f1 = function(x, y){
+    z = ((x^2) + (3 * y^2)) * exp(-(x^2) - (y^2))
+  }
+  plot3d(.f1, col = colorRampPalette(c("blue", "red")), 
+         xlab = "X", ylab = "Y", zlab = "Z", 
+         xlim = c(-3, 3), ylim = c(-3, 3),
+         aspect = c(1, 1, 0.5))
+  
+  .f2 = function(x, y){
+    z = (x^2) + (y^3)
+  }
+  plot3d(.f2, col = colorRampPalette(c("white", "black")),
+         xlab = "X", ylab = "Y", zlab = "Z",
+         xlim = c(-10, 10), ylim = c(-4, 4))
+  
+  
+  scene_surface3d <- scene3d()
+
+  output$widget_surface3d <- renderRglwidget(
+    rglwidget(scene_surface3d)
+  )
   
 })
 
