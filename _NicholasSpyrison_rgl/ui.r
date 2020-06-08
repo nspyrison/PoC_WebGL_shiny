@@ -56,7 +56,7 @@ surface3d_panel <- tabPanel("surface3d", fluidPage(
 ## tourr guided tour from pca to cmass.
 pca2cmass_panel <- tabPanel("pca2cmass", fluidPage(
   mainPanel(
-    h2("Guided tour from pca to cmass, step_size = .6;; 12 bases"),
+    h2("Guided tour from pca to cmass, step_size = .6, d = 3 ;; 10 bases"),
     sliderInput("pca2cmass_basis_slider", label = "Basis number", 
                 min = 1, max = B_tpath_bases, value = 1, step = 1),
     rglwidgetOutput("widget_pca2cmass")
