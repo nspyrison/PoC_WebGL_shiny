@@ -21,39 +21,41 @@ options(rgl.useNULL=TRUE) ## Must be executed BEFORE rgl is loaded on headless d
 ##### Global initialize -----
 ## Above server scope and not reactive
 ## Parameters:
-ptSize        <- 1.5 ## size (radius? diameter?) of data points
-surfaceAlpha  <- .3  ## Opacity of the surface/grid in [0-1], fully transparent and opaque respectively
-surfaceShine  <- 128 ## "Shininess" of some surfaces, in [0, 128] low values (<50) are too reflective
-nGridLevels   <- 50  ## The number of levels to grid search on each axis
-
-## data and work:
-dat <- { ## numeric data, rescaled flea
-  f <- tourr::flea[,1:6]
-  tourr::rescale(f)
+{
+  ptRad         <- .02 ## size (radius? diameter?) of data points
+  surfaceAlpha  <- .3  ## Opacity of the surface/grid in [0-1], fully transparent and opaque respectively
+  surfaceShine  <- 128 ## "Shininess" of some surfaces, in [0, 128] low values (<50) are too reflective
+  nGridLevels   <- 50  ## The number of levels to grid search on each axis
+  .a <- .7 ## alpha for boundingbox and axes lines
+  
+  ## data and work:
+  dat <- tourr::rescale(tourr::flea[, 1:6])
+  n     <- nrow(dat)
+  p     <- ncol(dat)
+  d     <- 3
+  ptCol <- spinifex::col_of(tourr::flea$species)
+  ptPch <- spinifex::pch_of(tourr::flea$species)
+  n_col <- length(unique(ptCol))
+  rb <- tourr::basis_random(p, d)
+  
+  rb2holes_tpath <- save_history(dat,
+                                 start = rb,step_size = .6,
+                                 tour_path = guided_tour(holes(), d = d, max.tries = 100))
+  n_tpath_bases <- dim(rb2holes_tpath)[3]
+  ## 12 bases (w/ step_size = .6, d=2), 10 bases (w/ step_size = .6, d=3)
+  rb2holes_proj <- array(NA, dim = c(n, d, n_tpath_bases))
+  for (i in 1:n_tpath_bases){
+    rb2holes_proj[,, i] <- tourr::rescale(dat %*% matrix(rb2holes_tpath[,, i], nrow = p))
+  }
+  
+  ## w/h not working atm.
+  
+  pca_bas  <- prcomp(x = dat)$rotation ## p-dim basis of PCA on mat_dat()
+  pca_proj <- tibble::as_tibble(tourr::rescale(dat %*% pca_bas))
+  
+  ## Estimate 2d density surface via MASS kernel smoothing
+  pca_kde2d <- kde2d(pca_proj$PC1, pca_proj$PC2, n = nGridLevels)
 }
-n     <- nrow(dat)
-p     <- ncol(dat)
-d     <- 3
-ptCol <- spinifex::col_of(tourr::flea$species)
-ptPch <- spinifex::pch_of(tourr::flea$species)
-
-pca2cmass_tpath <- save_history(dat, tour_path = 
-                                  guided_tour(cmass(), d = d, max.tries = 100), 
-                                step_size = .6, rescale = FALSE)
-n_tpath_bases <- dim(pca2cmass_tpath)[3]
-## 12 bases (w/ step_size = .6, d=2), 10 bases (w/ step_size = .6, d=3)
-pca2cmass_proj <- array(NA, dim = c(n, d, n_tpath_bases))
-for (i in 1:n_tpath_bases){
-  pca2cmass_proj[,, i] <- dat %*% matrix(pca2cmass_tpath[,, i], nrow = p)
-}
-# w <- h <- 100 ## height and width of the rgl widget in pixels, 
-## w/h not working atm.
-
-pca_bas  <- prcomp(x = dat)$rotation ## p-dim basis of PCA on mat_dat()
-pca_proj <- tibble::as_tibble(dat %*% pca_bas)
-
-## Estimate 2d density surface via MASS kernel smoothing
-pca_kde2d <- kde2d(pca_proj$PC1, pca_proj$PC2, n = nGridLevels)
 
 ####### shiny server start =====
 server <- shinyServer(function(input, output, session) {
@@ -64,13 +66,21 @@ server <- shinyServer(function(input, output, session) {
   ##### pca_kde3d =====
   ## Kernal estimation on covar matrix (1 SD, 68% obs within volume)
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-  plot3d(pca_proj$PC1, pca_proj$PC2, pca_proj$PC3, 
-         type = 's', size = ptSize, col = ptCol)  
+  spheres3d(pca_proj$PC1, pca_proj$PC2, pca_proj$PC3, 
+            radius = ptRad, col = ptCol)  
   ellips <- 
     ellipse3d(cov(pca_proj[, 1:3]), level = 0.68,
               centre = c(mean(pca_proj$PC1), mean(pca_proj$PC2), mean(pca_proj$PC3)))
   wire3d(ellips,  add = T, type = "wire",
          col = "grey", alpha = surfaceAlpha, shininess = surfaceShine)
+  
+  # for (i in 1:n_col){
+  #   .dat <- pca_proj[ptCol == ptCol[i],]
+  #   cl_ellips <- ellipse3d(cov(.dat[, 1:3]), level = 0.68,
+  #                          centre = c(mean(pca_proj$PC1), mean(pca_proj$PC2), mean(pca_proj$PC3)))
+  #   wire3d(cl_ellips,  add = T, type = "wire",
+  #          col = ptCol[i], alpha = surfaceAlpha, shininess = surfaceShine)
+  # }
   scene_pca_kde3d <- scene3d()
   
   output$widget_pca_kde3d <- renderRglwidget(
@@ -135,46 +145,63 @@ server <- shinyServer(function(input, output, session) {
   plot3d(.f2, col = colorRampPalette(c("white", "black")),
          xlab = "X", ylab = "Y", zlab = "Z",
          xlim = c(-10, 10), ylim = c(-4, 4))
-  
-  
   scene_functionSurfaces <- scene3d()
 
   output$widget_functionSurfaces <- renderRglwidget(
     rglwidget(scene_functionSurfaces)
   )
   
-  ##### pca2cmass =====
+  ##### rb2holes =====
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-  updateSliderInput(session, "pca2cmass_basis_slider", 
+  updateSliderInput(session, "rb2holes_basis_slider", 
                     value = 1, step = 1, min = 1, max = n_tpath_bases)
   
-  slider_t <- throttle(reactive(input$pca2cmass_basis_slider), millis = 50) 
+  slider_t <- throttle(reactive({
+    req(input$rb2holes_basis_slider)
+    input$rb2holes_basis_slider
+  }), millis = 50) 
   ## Reactive function, throttled slider value, returning value every 'millis' milliseconds, 
   #### _ie_ "Try to return value even while manipulating slider every .05 sec."
   
-  pca2cmass_rglwidget <- reactive({
+  rb2holes_rglwidget <- reactive({
     ## Selected projection plane from input slider.
-    sel_proj <- pca2cmass_proj[,, slider_t()]
-    plot3d(sel_proj[, 1], sel_proj[, 2], sel_proj[, 3],
-           type = 's', size = ptSize, col = ptCol)
+    req(slider_t())
+    this_proj <- tibble::as.tibble(rb2holes_proj[,, slider_t()])
+    ## Some aesthetics setup:
+    .l <- max(rb2holes_proj)
+    .i <- .l / 2
+    .bg <- "lightgrey" ##"grey100" ## lighter grey Back Ground
+    .bb <- "darkgrey"  ##"grey40"  ## darker grey  Bounding Box
+    .pal <- RColorBrewer::brewer.pal(3, "Paired")
+    .bb_s <- 1.2## scale of bounding box
+    .xlim <- .bb_s * c(0, max(rb2holes_proj[, 1, ]))
+    .ylim <- .bb_s * c(0, max(rb2holes_proj[, 2, ]))
+    .zlim <- .bb_s * c(0, max(rb2holes_proj[, 3, ]))
     
-    ## Some logistic setup:
-    bg3d(color = "grey100") ## Back ground color: lightgrey
-    bbox3d(xlen = 0, ylen = 0, zlen = 0, color = "grey40", alpha =.3, emission = "grey100")
-    lines3d(c(0, 1), c(0, 0), c(0, 0), color = "black") 
-    lines3d(c(0, 0), c(0, 1), c(0, 0), color = "red")
-    lines3d(c(0, 0), c(0, 0), c(0, 1), color = "green")
-    text3d(c(0, .5), c(0, 0), c(0, 0), texts = "x", adj = c(.5, 1.3), color = "black") 
-    text3d(c(0, 0), c(0, .5), c(0, 0), texts = "y", adj = c(.5, 1.3), color = "red")
-    text3d(c(0, 0), c(0, 0), c(0, .5), texts = "z", adj = c(.5, 1.3), color = "green")
+    spheres3d(this_proj$V1, this_proj$V2, this_proj$V3, 
+              radius = ptRad, col = ptCol,
+              xlab = "x", ylab = "y", zlab = "z") 
+    #,xlim = .xlim, ylim = .ylim, zlim = .zlim, expand = .bb_s)
+    bg3d(color = .bg) 
+    bbox3d(xlen = 0, ylen = 0, zlen = 0,
+           color = c("black", "red", "orange") , alpha = .a, emission = .bg, lwd = 2)
+    #,xlim = .xlim, ylim = .ylim, zlim = .zlim, expand = .bb_s)
+    lines3d(c(0, .l), c(0,  0), c(0,  0), color = .pal[1], lwd = 5, alpha = .a) 
+    lines3d(c(0,  0), c(0, .l), c(0,  0), color = .pal[2], lwd = 5, alpha = .a)
+    lines3d(c(0,  0), c(0,  0), c(0, .l), color = .pal[3], lwd = 5, alpha = .a)
+    # text3d(.i,  0,  0, color = "black", texts = "x", font = 1, adj = c(.5 , 1.3))
+    # text3d( 0, .i,  0, color = "black", texts = "y", font = 2, adj = c(.5 , 1.3))
+    # text3d( 0,  0, .i, color = "black", texts = "z", font = 3, adj = c(1.3, 1.3))
     
     
-    scene_pca2cmass <- scene3d()
-    rglwidget(scene_pca2cmass)
+    scene_rb2holes <- scene3d()
+    # Make it bigger
+    scene_rb2holes$par3d$windowRect <- 1.5 * scene_rb2holes$par3d$windowRect
+    rglwidget(scene_rb2holes, width = w, height = h)
   })
   
-  output$widget_pca2cmass <- renderRglwidget(
-    pca2cmass_rglwidget()
+  output$widget_rb2holes <- renderRglwidget(
+    rb2holes_rglwidget(),
   )
   
 })

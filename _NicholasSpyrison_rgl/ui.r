@@ -2,6 +2,8 @@
 library(shiny)
 library(rgl)
 
+w <- h <- "600px" ## height and width of the rgl widget in pixels, 
+
 ### Following: 
 ## https://stackoverflow.com/questions/39363384/how-to-remove-unwanted-text-output-with-shiny-rgl
 # shiny::runApp(system.file("shinyDemo", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
@@ -55,14 +57,14 @@ functionSurfaces_panel <- tabPanel("functionSurfaces", fluidPage(
   )
 ))
 
-##### pca2cmass  -----
+##### rb2holes  -----
 ## tourr guided tour from pca to cmass.
-pca2cmass_panel <- tabPanel("pca2cmass", fluidPage(
+rb2holes_panel <- tabPanel("rb2holes", fluidPage(
   mainPanel(
     h2("Guided tour from pca to cmass, step_size = .6, d = 3 ;; 10 bases"),
-    sliderInput("pca2cmass_basis_slider", label = "Basis number", 
-                value = -999, min = -999, max = -999),
-    rglwidgetOutput("widget_pca2cmass")
+    sliderInput("rb2holes_basis_slider", label = "Basis number", 
+                value = 1, min = 1, max = 1),
+    rglwidgetOutput("widget_rb2holes", width = w, height = h)
   )
 ))
 
@@ -72,11 +74,11 @@ pca2cmass_panel <- tabPanel("pca2cmass", fluidPage(
 ui <- fluidPage(
   h2("Nicholas Spyrison, 2020/05/29"),
   navbarPage("WebGL 3D visualizations, `rgl` package",
+             rb2holes_panel,
              pca_kde3d_panel,
              pca_kde2d_panel,
              logLik_panel,
-             functionSurfaces_panel,
-             pca2cmass_panel
+             functionSurfaces_panel
   )
 )
 
