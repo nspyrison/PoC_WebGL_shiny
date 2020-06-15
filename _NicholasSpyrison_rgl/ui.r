@@ -61,7 +61,7 @@ functionSurfaces_panel <- tabPanel("functionSurfaces", fluidPage(
 ## tourr guided tour from pca to cmass.
 rb2holes_panel <- tabPanel("rb2holes", fluidPage(
   mainPanel(
-    h2("Guided tour from pca to cmass, step_size = .6, d = 3 ;; 10 bases"),
+    h2("Guided tour from a random basis to holes(), step_size = .6, d = 3 ;; 10 bases"),
     sliderInput("rb2holes_basis_slider", label = "Basis number", 
                 value = 1, min = 1, max = 1),
     rglwidgetOutput("widget_rb2holes", width = w, height = h)

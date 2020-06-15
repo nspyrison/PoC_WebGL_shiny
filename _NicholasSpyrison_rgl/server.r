@@ -173,25 +173,24 @@ server <- shinyServer(function(input, output, session) {
     .bg <- "lightgrey" ##"grey100" ## lighter grey Back Ground
     .bb <- "darkgrey"  ##"grey40"  ## darker grey  Bounding Box
     .pal <- RColorBrewer::brewer.pal(3, "Paired")
-    .bb_s <- 1.2## scale of bounding box
+    .bb_s <- 1.5## scale of bounding box
     .xlim <- .bb_s * c(0, max(rb2holes_proj[, 1, ]))
     .ylim <- .bb_s * c(0, max(rb2holes_proj[, 2, ]))
     .zlim <- .bb_s * c(0, max(rb2holes_proj[, 3, ]))
     
     spheres3d(this_proj$V1, this_proj$V2, this_proj$V3, 
-              radius = ptRad, col = ptCol,
-              xlab = "x", ylab = "y", zlab = "z") 
-    #,xlim = .xlim, ylim = .ylim, zlim = .zlim, expand = .bb_s)
+              radius = ptRad, col = ptCol) # xlab = "x", ylab = "y", zlab = "z") ## not applying in shiny.
+    #,xlim = .xlim, ylim = .ylim, zlim = .zlim, expand = .bb_s) ## not applying in shiny.
     bg3d(color = .bg) 
-    bbox3d(xlen = 0, ylen = 0, zlen = 0,
-           color = c("black", "red", "orange") , alpha = .a, emission = .bg, lwd = 2)
-    #,xlim = .xlim, ylim = .ylim, zlim = .zlim, expand = .bb_s)
-    lines3d(c(0, .l), c(0,  0), c(0,  0), color = .pal[1], lwd = 5, alpha = .a) 
-    lines3d(c(0,  0), c(0, .l), c(0,  0), color = .pal[2], lwd = 5, alpha = .a)
-    lines3d(c(0,  0), c(0,  0), c(0, .l), color = .pal[3], lwd = 5, alpha = .a)
-    # text3d(.i,  0,  0, color = "black", texts = "x", font = 1, adj = c(.5 , 1.3))
-    # text3d( 0, .i,  0, color = "black", texts = "y", font = 2, adj = c(.5 , 1.3))
-    # text3d( 0,  0, .i, color = "black", texts = "z", font = 3, adj = c(1.3, 1.3))
+    bbox3d(xlen = 0, ylen = 0, zlen = 0, #xlab = "x", ylab = "y", zlab = "z", ## not applying in shiny
+           color = c("black", "red", "orange") , alpha = .a, emission = .bg, lwd = 1)
+    #,#xlim = .xlim, ylim = .ylim, zlim = .zlim, expand = .bb_s) ## not applying in shiny
+    lines3d(c(0, .l), c(0,  0), c(0,  0), color = .pal[1], lwd = 8, alpha = .9, ) 
+    lines3d(c(0,  0), c(0, .l), c(0,  0), color = .pal[2], lwd = 8, alpha = .9)
+    lines3d(c(0,  0), c(0,  0), c(0, .l), color = .pal[3], lwd = 8, alpha = .9)
+    text3d(.i,  0,  0, color = "black", texts = "x", cex = 2, adj = c(.5 , 1.3))
+    text3d( 0, .i,  0, color = "black", texts = "y", cex = 2, adj = c(.5 , 1.3))
+    text3d( 0,  0, .i, color = "black", texts = "z", cex = 2, adj = c(1.3, 1.3))
     
     
     scene_rb2holes <- scene3d()
