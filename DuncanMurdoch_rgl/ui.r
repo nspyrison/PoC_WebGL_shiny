@@ -1,4 +1,5 @@
 library(shiny)
+library(rgl)
 
 shinyUI(fluidPage(
   mainPanel(

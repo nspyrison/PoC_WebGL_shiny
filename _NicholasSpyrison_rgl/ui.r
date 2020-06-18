@@ -1,12 +1,32 @@
 #" Minimal shiny UI for respective server.r
-library(shiny)
-library(rgl)
+require("shiny")
+require("rgl")
+require("RColorBrewer")
 
 w <- h <- "600px" ## height and width of the rgl widget in pixels, 
 
+### Define a couple local function to remove spinifex.
+app_col_of <- function(category, pallet_name = "Dark2") {
+  .l_lvls <- length(levels(category))
+  if (.l_lvls == 0) stop("Length of 'category' cannot be zero.")
+  if (.l_lvls > 12) stop("'category' has more than the expected max of 12 levels.")
+  pal <- suppressWarnings(RColorBrewer::brewer.pal(.l_lvls, pallet_name))
+  pal[as.integer(factor(category))]
+}
+
+app_pch_of <- function(category) {
+  .l_lvls <- length(levels(category))
+  if (.l_lvls == 0) stop("Length of 'category' cannot be zero.")
+  if (.l_lvls > 12) stop("'category' has more than the expected max of 12 levels.")
+  y_ord <- c(21:25, 3:4, 7:11)
+  int_lvls <- as.integer(factor(category))
+  y_ord[int_lvls]
+}
+
+
 ### Following: 
 ## https://stackoverflow.com/questions/39363384/how-to-remove-unwanted-text-output-with-shiny-rgl
-# shiny::runApp(system.file("shinyDemo", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
+# shiny::runApp(system.file("shinyDemo",  package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 # shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 
 ##### rgl -----

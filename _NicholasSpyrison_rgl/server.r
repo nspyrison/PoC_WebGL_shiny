@@ -3,15 +3,13 @@
 #' PoC of different graphics packaes. Recreating from the other example folders in this repo.
 #' @author Nicholas Spyrison \email{spyrison@gmail.com}
 
-library(shiny)
-library(rgl)
-library(MASS)
-library(spinifex)  ## for flea, and util func
-library(tourr)
-library(tictoc)
-source('ui.r', local = TRUE)
+require("shiny")
+require("rgl")
+require("MASS")
+require("tourr")
+source("ui.r", local = TRUE)
 set.seed(20200527)
-options(rgl.useNULL=TRUE) ## Must be executed BEFORE rgl is loaded on headless devices.
+options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless devices.
 
 ##### exmples: 
 ## http://www.sthda.com/english/wiki/a-complete-guide-to-3d-visualization-device-system-in-r-r-software-and-data-visualization
@@ -29,14 +27,14 @@ options(rgl.useNULL=TRUE) ## Must be executed BEFORE rgl is loaded on headless d
   .a <- .7 ## alpha for boundingbox and axes lines
   
   ## data and work:
-  dat <- tourr::rescale(tourr::flea[, 1:6])
+  dat   <- tourr::rescale(tourr::flea[, 1:6])
   n     <- nrow(dat)
   p     <- ncol(dat)
   d     <- 3
-  ptCol <- spinifex::col_of(tourr::flea$species)
-  ptPch <- spinifex::pch_of(tourr::flea$species)
+  rb    <- tourr::basis_random(p, d)
+  ptCol <- app_col_of(tourr::flea$species)
+  ptPch <- app_pch_of(tourr::flea$species)
   n_col <- length(unique(ptCol))
-  rb <- tourr::basis_random(p, d)
   
   rb2holes_tpath <- save_history(dat,
                                  start = rb,step_size = .6,
@@ -45,16 +43,34 @@ options(rgl.useNULL=TRUE) ## Must be executed BEFORE rgl is loaded on headless d
   ## 12 bases (w/ step_size = .6, d=2), 10 bases (w/ step_size = .6, d=3)
   rb2holes_proj <- array(NA, dim = c(n, d, n_tpath_bases))
   for (i in 1:n_tpath_bases){
-    rb2holes_proj[,, i] <- tourr::rescale(dat %*% matrix(rb2holes_tpath[,, i], nrow = p))
+    rb2holes_proj[,, i] <- dat %*% matrix(rb2holes_tpath[,, i], nrow = p)
   }
-  
-  ## w/h not working atm.
-  
-  pca_bas  <- prcomp(x = dat)$rotation ## p-dim basis of PCA on mat_dat()
-  pca_proj <- tibble::as_tibble(tourr::rescale(dat %*% pca_bas))
   
   ## Estimate 2d density surface via MASS kernel smoothing
   pca_kde2d <- kde2d(pca_proj$PC1, pca_proj$PC2, n = nGridLevels)
+  
+  ### Aesthetic init
+  .proj <- tibble::as.tibble(rb2holes_proj)
+  x_min <- min(.proj[, 1, ])
+  y_min <- min(.proj[, 2, ])
+  z_min <- min(.proj[, 3, ])
+  x_max <- max(.proj[, 1, ])
+  y_max <- max(.proj[, 2, ])
+  z_max <- max(.proj[, 3, ])
+  
+  convex_box <- data.frame(x = c(x_min, x_max, x_min, x_min, x_max, x_max, x_max, x_min) , 
+                           y = c(y_min, y_min, y_max, y_min, y_max, y_max, y_min, y_max), 
+                           z = c(z_min, z_min, z_min, z_max, z_max, z_min, z_max, z_max))
+
+  ## Some aesthetics setup:
+  
+  .bg <- "lightgrey" ##"grey100" ## lighter grey Back Ground
+  .bb <- "darkgrey"  ##"grey40"  ## darker grey  Bounding Box
+  .pal <- RColorBrewer::brewer.pal(3, "Paired")
+  .bb_s <- 1.5## scale of bounding box
+  .xlim <- .bb_s * c(0, max(rb2holes_proj[, 1, ]))
+  .ylim <- .bb_s * c(0, max(rb2holes_proj[, 2, ]))
+  .zlim <- .bb_s * c(0, max(rb2holes_proj[, 3, ]))
 }
 
 ####### shiny server start =====
@@ -156,41 +172,39 @@ server <- shinyServer(function(input, output, session) {
   updateSliderInput(session, "rb2holes_basis_slider", 
                     value = 1, step = 1, min = 1, max = n_tpath_bases)
   
-  slider_t <- throttle(reactive({
-    req(input$rb2holes_basis_slider)
-    input$rb2holes_basis_slider
-  }), millis = 50) 
+  slider <- reactive(input$rb2holes_basis_slider)
+  slider_t <- throttle(slider, millis = 50) 
   ## Reactive function, throttled slider value, returning value every 'millis' milliseconds, 
   #### _ie_ "Try to return value even while manipulating slider every .05 sec."
   
   rb2holes_rglwidget <- reactive({
+    try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
     ## Selected projection plane from input slider.
     req(slider_t())
-    this_proj <- tibble::as.tibble(rb2holes_proj[,, slider_t()])
-    ## Some aesthetics setup:
-    .l <- max(rb2holes_proj)
-    .i <- .l / 2
-    .bg <- "lightgrey" ##"grey100" ## lighter grey Back Ground
-    .bb <- "darkgrey"  ##"grey40"  ## darker grey  Bounding Box
-    .pal <- RColorBrewer::brewer.pal(3, "Paired")
-    .bb_s <- 1.5## scale of bounding box
-    .xlim <- .bb_s * c(0, max(rb2holes_proj[, 1, ]))
-    .ylim <- .bb_s * c(0, max(rb2holes_proj[, 2, ]))
-    .zlim <- .bb_s * c(0, max(rb2holes_proj[, 3, ]))
+    this_proj <- .proj[,, slider_t()]
     
+    ## Open scene with isopectric perspective
+    open3d(FOV = 0)
+
+    ## Plot projection points
     spheres3d(this_proj$V1, this_proj$V2, this_proj$V3, 
               radius = ptRad, col = ptCol) # xlab = "x", ylab = "y", zlab = "z") ## not applying in shiny.
-    #,xlim = .xlim, ylim = .ylim, zlim = .zlim, expand = .bb_s) ## not applying in shiny.
-    bg3d(color = .bg) 
+    ## Prop up bounding box with max values; a sort of convex bounding box.
+    spheres3d(convex_box$x, convex_box$y, convex_box$z, 
+              radius = ptRad / 2, col = "black")
+    
     bbox3d(xlen = 0, ylen = 0, zlen = 0, #xlab = "x", ylab = "y", zlab = "z", ## not applying in shiny
            color = c("black", "red", "orange") , alpha = .a, emission = .bg, lwd = 1)
     #,#xlim = .xlim, ylim = .ylim, zlim = .zlim, expand = .bb_s) ## not applying in shiny
-    lines3d(c(0, .l), c(0,  0), c(0,  0), color = .pal[1], lwd = 8, alpha = .9, ) 
-    lines3d(c(0,  0), c(0, .l), c(0,  0), color = .pal[2], lwd = 8, alpha = .9)
-    lines3d(c(0,  0), c(0,  0), c(0, .l), color = .pal[3], lwd = 8, alpha = .9)
-    text3d(.i,  0,  0, color = "black", texts = "x", cex = 2, adj = c(.5 , 1.3))
-    text3d( 0, .i,  0, color = "black", texts = "y", cex = 2, adj = c(.5 , 1.3))
-    text3d( 0,  0, .i, color = "black", texts = "z", cex = 2, adj = c(1.3, 1.3))
+    
+    ## Aesthetic setup
+    bg3d(color = .bg) 
+    lines3d(c(0, -1), c(0, 0), c(0, 0), lwd = 4, alpha = .a) # color = .pal[1],
+    lines3d(c(0, 0), c(0, -1), c(0, 0), lwd = 4, alpha = .a) # color = .pal[2],
+    lines3d(c(0, 0), c(0, 0), c(0, -1), lwd = 4, alpha = .a) # color = .pal[3],
+    text3d(-.5,  0,  0, color = "black", texts = "x", cex = 2, adj = c(.5 , 1.3))
+    text3d( 0, -.5,  0, color = "black", texts = "y", cex = 2, adj = c(.5 , 1.3))
+    text3d( 0,  0, -.5, color = "black", texts = "z", cex = 2, adj = c(1.3, 1.3))
     
     
     scene_rb2holes <- scene3d()
