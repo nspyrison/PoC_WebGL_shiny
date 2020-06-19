@@ -84,15 +84,17 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
 
 ####### shiny server start =====
 server <- shinyServer(function(input, output, session) {
-  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  # try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  app_CloseRGL()
   save <- options(rgl.inShiny = TRUE)
-  on.exit({options(save);  try(rgl.close(), silent = T)})
+  on.exit({options(save); app_CloseRGL()})
   
   
   ##### holes_kde3d =====
   ## Kernal estimation on covar matrix 
   ## Loosely, the smallest n-D ellipsoid containing 'level'% of the observations from the estimated distribution.
-  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  # try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  app_CloseRGL()
   spheres3d(holes_proj[, 1], holes_proj[, 2], holes_proj[, 3], 
             radius = ptRad, col = ptCol)  
   ellips <- 
@@ -119,7 +121,8 @@ server <- shinyServer(function(input, output, session) {
   ##### holes_kde2d =====
   ## via MASS::kde2d()
   ## Can't seem to get type="wire" and some other options working
-  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  # try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  app_CloseRGL()
   spheres3d(holes_proj[, 1], holes_proj[, 2], rep(0, n), 
             radius = ptRad, col = ptCol)
   persp3d(holes_kde2d, add = T,
@@ -133,7 +136,8 @@ server <- shinyServer(function(input, output, session) {
   
   
   ##### logLik =====
-  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  # try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  app_CloseRGL()
   x   <- rgamma(100, shape = 5, rate = 0.1)
   fit <- fitdistr(x, dgamma, list(shape = 1, rate = 0.1), lower = 0.001)
   loglik <- function(shape, rate)
@@ -162,7 +166,8 @@ server <- shinyServer(function(input, output, session) {
   ##### functionSurfaces =====
   ## Following example for surf3D in: 
   # browseURL("https://cran.r-project.org/web/packages/plot3D/vignettes/plot3D.pdf")
-  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  # try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  app_CloseRGL()
   mfrow3d(1, 2, sharedMouse = FALSE)
   .f1 = function(x, y){
     z = ((x^2) + (3 * y^2)) * exp(-(x^2) - (y^2))

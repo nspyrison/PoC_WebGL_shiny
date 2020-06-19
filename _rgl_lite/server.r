@@ -79,9 +79,9 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
 
 ####### shiny server start =====
 server <- shinyServer(function(input, output, session) {
-  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  app_CloseRGL()
   save <- options(rgl.inShiny = TRUE)
-  on.exit({options(save);  try(rgl.close(), silent = T)})
+  on.exit({options(save); app_CloseRGL()})
   
   ##### rb2holes =====
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
@@ -96,9 +96,9 @@ server <- shinyServer(function(input, output, session) {
   
   
   rb2holes_rglwidget <- reactive({
-    try(rgl.clear(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-    ## Selected projection plane from input slider.
+    app_CloseRGL()
     req(slider_t())
+    ## Selected projection basis and convex box from input slider.
     this_proj <- rb2holes_proj[,, slider_t()]
     this_convex_box <- basis_convex_box[,, slider_t()]
     

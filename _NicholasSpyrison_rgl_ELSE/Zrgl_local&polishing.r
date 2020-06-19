@@ -5,6 +5,13 @@
   message("Alternatively, run options(rgl.printRglwidget = TRUE), to print widget to Viewer.")
 }
 
+nsCloseRGL <- function() {
+  last_close_errored <- FALSE
+  while (last_close_errored == FALSE)
+    closed_last_rgl <- try(rgl.close(), silent = TRUE)
+}
+
+nsCloseRGL()
 open3d()
 #### ns example 1 -- unit lines -----
 rgl.clear()
@@ -40,6 +47,7 @@ spheres3d(x, y, z,
 text3d(x = x, y = y, z = z, text = 1:20, adj = c(.5, 1.3), cex = 1, col = "black")
 rglwidget()
 
+nsCloseRGL()
 
 ## other aesthetics -----
 # title3d('main', 'sub', 'xlab', 'ylab', 'zlab') ## Add various titles and labels

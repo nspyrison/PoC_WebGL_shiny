@@ -23,6 +23,13 @@ app_pch_of <- function(category) {
   y_ord[int_lvls]
 }
 
+app_CloseRGL <- function() {
+  last_close_errored <- FALSE
+  while (last_close_errored == FALSE)
+    closed_last_rgl <- try(rgl.close(), silent = TRUE)
+}
+
+
 
 
 ### Following: 

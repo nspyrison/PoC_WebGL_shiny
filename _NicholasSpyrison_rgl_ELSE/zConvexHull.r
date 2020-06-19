@@ -19,8 +19,8 @@ ps2 <- matrix(c(x[51:150],y[51:150],z[51:150]), ncol=3)  # generate points on a 
 ts.surf2 <- t(geometry::convhulln(ps2))  # see the qhull documentations for the options
 
 nsCloseRGL <- function() {
-  closed_last_rgl <- NULL
-  while (is.null(closed_last_rgl))
+  last_close_errored <- FALSE
+  while (last_close_errored == FALSE)
     closed_last_rgl <- try(rgl.close(), silent = TRUE)
 }
 nsCloseRGL()

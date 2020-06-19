@@ -22,6 +22,11 @@ app_pch_of <- function(category) {
   int_lvls <- as.integer(factor(category))
   y_ord[int_lvls]
 }
+app_CloseRGL <- function() {
+  last_close_errored <- FALSE
+  while (last_close_errored == FALSE)
+    closed_last_rgl <- try(rgl.close(), silent = TRUE)
+}
 
 ##### rb2holes  -----
 ## tourr guided tour from rb to holes
