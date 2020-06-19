@@ -23,7 +23,7 @@ axes3d(c('x', 'y', 'z'), color = rainbow(20)) ## Use fixed axes, note that color
 legend3d(x = .7, y = .9, ## manual legends, similar to ?graphics::legend()
          paste0("mark ", letters[1:4]), 
          pch = c(1, 16), 
-         col = c("black", "red", "green"),
+         col = c("black", "red", "green")
          )
 rglwidget()
 

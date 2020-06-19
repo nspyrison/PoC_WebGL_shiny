@@ -5,9 +5,9 @@ account: ebsmonash
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2470901
-bundleId: 3285603
+bundleId: 3289709
 url: https://ebsmonash.shinyapps.io/_NicholasSpyrison_rgl/
-when: 1592452857.10057
+when: 1592523109.34237
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: testrgl.html|testrgl.rmd|Zplot3D_example.R|Zrgl_local&polishing.r|Ztourr_example.r|www/rglwidgetaux.js

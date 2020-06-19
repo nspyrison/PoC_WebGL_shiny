@@ -24,6 +24,7 @@ app_pch_of <- function(category) {
 }
 
 
+
 ### Following: 
 ## https://stackoverflow.com/questions/39363384/how-to-remove-unwanted-text-output-with-shiny-rgl
 # shiny::runApp(system.file("shinyDemo",  package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
@@ -32,7 +33,7 @@ app_pch_of <- function(category) {
 ##### rgl -----
 rgl_panel <- tabPanel("rgl", fluidPage(
   mainPanel(
-    h2("3D ellipsoid of full data to 1 Std Dev (conf = 68%)"),
+    h2("1 Std Dev ellipsoids of 3D Kernal density (conf = 68%)"),
     rglwidgetOutput("rgl")
   )
 ))
@@ -42,7 +43,8 @@ rgl_panel <- tabPanel("rgl", fluidPage(
 ## Kernal estimation on covar matrix (1 SD, 68% obs within volume)
 pca_kde3d_panel <- tabPanel("pca_kde3d", fluidPage(
   mainPanel(
-    h2("3D kernel density estimation. on covar matrix, 1 SD mesh, ~68% obs lie within bounds"),
+    h2("3D kernel density estimation on covar matrix"),
+    p("Loosely, the smallest 3D ellipsoid containing 68% of the observations from the estimated distribution."),
     rglwidgetOutput("widget_pca_kde3d")
   )
 ))
@@ -51,7 +53,7 @@ pca_kde3d_panel <- tabPanel("pca_kde3d", fluidPage(
 ## Via MASS::kde2d()
 pca_kde2d_panel <- tabPanel("pca_kde2d", fluidPage(
   mainPanel(
-    h2("2D kernel density estimation. via MASS::kde3d."),
+    h2("2D kernel density estimation. via MASS::kde2d()."),
     rglwidgetOutput("widget_pca_kde2d")
     
   )
