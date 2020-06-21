@@ -1,10 +1,12 @@
-#" Minimal shiny UI for respective server.r
+##### _NicholasSpyrison_rlg/ui.r setup ----
+#' shiny UI for  server.r
 require("shiny")
 require("rgl")
 require("RColorBrewer")
 
 w <- h <- "600px" ## height and width of the rgl widget in pixels, 
 
+##### Local app_* functions -----
 ### Define a couple local function to remove spinifex.
 app_col_of <- function(category, pallet_name = "Dark2") {
   .l_lvls <- length(levels(category))
@@ -29,13 +31,24 @@ app_CloseRGL <- function() {
     closed_last_rgl <- try(rgl.close(), silent = TRUE)
 }
 
-
-
-
+##### Start of shiny ui ----
 ### Following: 
 ## https://stackoverflow.com/questions/39363384/how-to-remove-unwanted-text-output-with-shiny-rgl
 # shiny::runApp(system.file("shinyDemo",  package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 # shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
+
+
+##### rb2holes  -----
+## tourr guided tour from rb to holes
+rb2holes_panel <- tabPanel("rb2holes", fluidPage(
+  mainPanel(
+    h2("Guided tour from a random basis to holes() @: step_size = .6, d = 3"),
+    sliderInput("rb2holes_basis_slider", label = "Basis number", 
+                value = 1, min = 1, max = 1),
+    textOutput("slider_t"),
+    rglwidgetOutput("widget_rb2holes", width = w, height = h)
+  )
+))
 
 ##### rgl -----
 rgl_panel <- tabPanel("rgl", fluidPage(
