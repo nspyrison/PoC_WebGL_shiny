@@ -1,22 +1,26 @@
 { ## Setup -----
   library("rgl")
+  options(rgl.useNULL=TRUE)
   #options(rgl.printRglwidget = F)
-  message("Call rglwidget() to view a webGL object from the RStudio Viewer pane.")
-  message("Alternatively, run options(rgl.printRglwidget = TRUE), to print widget to Viewer.")
+  ## Call rglwidget() to display the scene
+  
+  nsCloseRGL <- function(n_tries = 5) {
+    try_num <- 1
+    while (try_num <= n_tries){
+      try(rgl.close(), silent = TRUE)
+      try_num <- try_num + 1
+    }
+  }
 }
 
-nsCloseRGL <- function() {
-  last_close_errored <- FALSE
-  while (last_close_errored == FALSE)
-    closed_last_rgl <- try(rgl.close(), silent = TRUE)
-}
+message("Call rglwidget() to view a webGL object from the RStudio Viewer pane.")
+message("Alternatively, run options(rgl.printRglwidget = TRUE), to print widget to Viewer.")
 
-nsCloseRGL()
-open3d()
-#### ns example 1 -- unit lines -----
-rgl.clear()
 x <- rnorm(20); y <- rnorm(20); z <- rnorm(20)
+nsCloseRGL()
 
+#### ns example 1 -- unit lines -----
+open3d()
 spheres3d(z, y, z, radius = .05) ## radius is the same size as the values.
 lines3d(c(0, 1), c(0, 0), c(0, 0), color = "black") 
 lines3d(c(0, 0), c(0, 1), c(0, 0), color = "red")
@@ -34,11 +38,13 @@ legend3d(x = .7, y = .9, ## manual legends, similar to ?graphics::legend()
          )
 rglwidget()
 
+
+
+x <- rnorm(20); y <- rnorm(20); z <- rnorm(20)
+nsCloseRGL()
 #### ns2 -- bg3d(), bbox3d()------
 ## background and bounding boxes, bg3d(), bbox3d().
-rgl.clear()
-x <- rnorm(20); y <- rnorm(20); z <- rnorm(20)
-
+open3d()
 bg3d(color = "grey100") ## Back ground color: lightgrey
 bbox3d(xlen = 0, ylen = 0, zlen = 0, color = "grey40", alpha =.3, emission = "grey100")
 ## emission is sort of like blending color, if you have good background color, set to that for data vis.
@@ -47,8 +53,9 @@ spheres3d(x, y, z,
 text3d(x = x, y = y, z = z, text = 1:20, adj = c(.5, 1.3), cex = 1, col = "black")
 rglwidget()
 
-nsCloseRGL()
 
+
+nsCloseRGL()
 ## other aesthetics -----
 # title3d('main', 'sub', 'xlab', 'ylab', 'zlab') ## Add various titles and labels
 # axes3d(c('x', 'y', 'z')) ## Use fixed axes

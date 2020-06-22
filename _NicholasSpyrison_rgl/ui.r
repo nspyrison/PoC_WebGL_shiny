@@ -3,11 +3,20 @@
 require("shiny")
 require("rgl")
 require("RColorBrewer")
+library("htmlwidgets")
+library("jsonlite")
 
 w <- h <- "600px" ## height and width of the rgl widget in pixels, 
 
 ##### Local app_* functions -----
-### Define a couple local function to remove spinifex.
+rgl_widget_rotation <- function(inputId, value="", nrows, ncols) {
+  # This code includes the javascript that we need and defines the html
+  tagList(
+    singleton(tags$head(tags$script(src = "rglwidgetaux.js"))),
+    tags$div(id = inputId,class = "rglWidgetAux",as.character(value))
+  )
+}
+
 app_col_of <- function(category, pallet_name = "Dark2") {
   .l_lvls <- length(levels(category))
   if (.l_lvls == 0) stop("Length of 'category' cannot be zero.")
@@ -110,6 +119,14 @@ rb2holes_panel <- tabPanel("rb2holes", fluidPage(
   )
 ))
 
+##### widget_rotation  -----
+widget_rotation_panel <- tabPanel("widget rotation", fluidPage(
+  rgl_widget_rotation('ctrlplot3d'),
+  actionButton("regen", "Regen Scene"),
+  actionButton("queryumat", "Query User Matrix"),
+  rglwidgetOutput("plot3d"),
+  tableOutput("usermatrix")
+))
 
 ##### ui -----
 ## Bring the panels together for full UI
@@ -120,7 +137,8 @@ ui <- fluidPage(
              pca_kde3d_panel,
              pca_kde2d_panel,
              logLik_panel,
-             functionSurfaces_panel
+             functionSurfaces_panel,
+             widget_rotation_panel
   )
 )
 

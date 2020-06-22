@@ -46,7 +46,7 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
   n_tpath_bases <- dim(rb2holes_tpath)[3]
   
   rb2holes_proj    <- array(NA, dim = c(  n, d, n_tpath_bases))
-  frame_convex_box <- array(NA, dim = c(2^d, d, n_tpath_bases))
+  basis_convex_box <- array(NA, dim = c(2^d, d, n_tpath_bases))
   for (i in 1:n_tpath_bases){
     rb2holes_proj[,, i] <- dat %*% matrix(rb2holes_tpath[,, i], nrow = p)
     
@@ -56,7 +56,7 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
     x_max <- max(rb2holes_proj[, 1, i])
     y_max <- max(rb2holes_proj[, 2, i])
     z_max <- max(rb2holes_proj[, 3, i])
-    frame_convex_box[,, i] <- as.matrix(data.frame(
+    basis_convex_box[,, i] <- as.matrix(data.frame(
       x = c(x_min, x_max, x_min, x_min, x_max, x_max, x_max, x_min),
       y = c(y_min, y_min, y_max, y_min, y_max, y_max, y_min, y_max),
       z = c(z_min, z_min, z_min, z_max, z_max, z_min, z_max, z_max)
@@ -82,9 +82,9 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
 }
 
 ####### shiny server start =====
-server <- shinyServer(function(input, output, session) {
+server <- shinyServer(function(input, output, session) { ## Session required.
   # try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-  app_CloseRGL()
+  # app_CloseRGL()
   save <- options(rgl.inShiny = TRUE)
   on.exit({options(save); try(rgl.close(), silent = TRUE)})
   
@@ -111,13 +111,13 @@ server <- shinyServer(function(input, output, session) {
     open3d(FOV = 0)
     ## Plot projection points
     spheres3d(this_proj[, 1], this_proj[, 2], this_proj[, 3], 
-              radius = ptRad, col = ptCol)
+              radius = .ptRad, col = ptCol)
     
     ## Prop up basis and fulll tour convex bounding box
     spheres3d(this_convex_box[, 1], this_convex_box[, 2], this_convex_box[, 3], 
-              radius = ptRad / 2, col = "black")
+              radius = .ptRad / 2, col = "black")
     spheres3d(tour_convex_box[, 1], tour_convex_box[, 2], tour_convex_box[, 3], 
-              radius = ptRad / 2, col = "grey")
+              radius = .ptRad / 2, col = "grey")
     ## Aesthetic setup
     bg3d(color = .bg)
     bbox3d(xlen = 0, ylen = 0, zlen = 0,
@@ -146,7 +146,7 @@ server <- shinyServer(function(input, output, session) {
   #app_CloseRGL()
   open3d(FOV = 0)
   spheres3d(holes_proj[, 1], holes_proj[, 2], holes_proj[, 3], 
-            radius = ptRad, col = ptCol)  
+            radius = .ptRad, col = ptCol)  
   ellips <- 
     ellipse3d(cov(holes_proj[, 1:3]), level = 0.68,
               centre = apply(holes_proj, 2, mean))
@@ -175,7 +175,7 @@ server <- shinyServer(function(input, output, session) {
   #app_CloseRGL()
   open3d(FOV = 0)
   spheres3d(holes_proj[, 1], holes_proj[, 2], rep(0, n), 
-            radius = ptRad, col = ptCol)
+            radius = .ptRad, col = ptCol)
   persp3d(holes_kde2d, add = T,
           col = "red", alpha = 1 - .a, shininess = .shine)
   
@@ -241,6 +241,44 @@ server <- shinyServer(function(input, output, session) {
   output$widget_functionSurfaces <- renderRglwidget(
     rglwidget(scene_functionSurfaces)
   )
+  
+  ### widget_rotation -----
+  observe({
+    # tell our rglWidgetAux to query the plot3d for its par3d
+    input$queryumat
+    session$sendInputMessage("ctrlplot3d", list("cmd"="getpar3d","rglwidgetId"="plot3d"))
+  })
+  
+  output$usermatrix <- renderTable({
+    ## NOTE .js file may have hardcoded names, change slowly and carfully.
+    shiny::validate(need(!is.null(input$ctrlplot3d),"User Matrix not yet queried"))
+    rmat <- matrix(0,4,4)
+    jsonpar3d <- input$ctrlplot3d
+    if (jsonlite::validate(jsonpar3d)){
+      par3dout <- fromJSON(jsonpar3d)
+      rmat <- matrix(unlist(par3dout$userMatrix),4,4) # make list into matrix
+    }
+    return(rmat)
+  })
+  
+  scenegen <- reactive({
+    # make a random scene
+    input$regen
+    n <- 1000
+    x <- sort(rnorm(n))
+    y <- rnorm(n)
+    z <- rnorm(n) + atan2(x, y)
+    open3d(theta = 20, phi = 45, fov = 60, zoom = 1)
+    plot3d(x, y, z, col = rainbow(n))
+    scene1 <- scene3d()
+    rgl.close() # make the app window go away
+    return(scene1)
+  })
+  output$plot3d <- renderRglwidget({ rglwidget(scenegen()) })
+  
+  
+ 
+  
   
 })
 
