@@ -3,20 +3,12 @@
 require("shiny")
 require("rgl")
 require("RColorBrewer")
-library("htmlwidgets")
-library("jsonlite")
+require("htmlwidgets")
+require("jsonlite")
 
 w <- h <- "600px" ## height and width of the rgl widget in pixels, 
 
 ##### Local app_* functions -----
-rgl_widget_rotation <- function(inputId, value="", nrows, ncols) {
-  # This code includes the javascript that we need and defines the html
-  tagList(
-    singleton(tags$head(tags$script(src = "rglwidgetaux.js"))),
-    tags$div(id = inputId,class = "rglWidgetAux",as.character(value))
-  )
-}
-
 app_col_of <- function(category, pallet_name = "Dark2") {
   .l_lvls <- length(levels(category))
   if (.l_lvls == 0) stop("Length of 'category' cannot be zero.")
@@ -32,12 +24,6 @@ app_pch_of <- function(category) {
   y_ord <- c(21:25, 3:4, 7:11)
   int_lvls <- as.integer(factor(category))
   y_ord[int_lvls]
-}
-
-app_CloseRGL <- function() {
-  last_close_errored <- FALSE
-  while (last_close_errored == FALSE)
-    closed_last_rgl <- try(rgl.close(), silent = TRUE)
 }
 
 ##### Start of shiny ui ----
@@ -83,7 +69,7 @@ pca_kde3d_panel <- tabPanel("pca_kde3d", fluidPage(
 pca_kde2d_panel <- tabPanel("pca_kde2d", fluidPage(
   mainPanel(
     h2("2D kernel density estimation. via MASS::kde2d()."),
-    rglwidgetOutput("widget_pca_kde2d")
+    rglwidgetOutput("widget_holes_kde2d")
     
   )
 ))
@@ -101,10 +87,15 @@ logLik_panel <- tabPanel("logLik", fluidPage(
 ##### functionSurfaces -----
 functionSurfaces_panel <- tabPanel("functionSurfaces", fluidPage(
   mainPanel(
-    h2("Function surfaces, z = f(x,y), widget rotation not linked."),
+    h2("function surfaces, as sampled from geozoo and mvtnorm"),
+    p("x: Grid values of 3D cube between [-3,3] y: Multivariate Normal Density(x, 0)"),
+    p("left: orthagonal view; c(x1, x2, y1)"),
+    p("right: NULL"),
+    rglwidgetOutput("widget_functionSurfaces"),
+    h2("Static function surfaces, z = f(x,y)"),
     p("left:  z = ((x^2) + (3 * y^2)) * exp(-(x^2) - (y^2))"),
     p("right: z = (x^2) + (y^3); inflection pt not at extrema."),
-    rglwidgetOutput("widget_functionSurfaces")
+    rglwidgetOutput("widget_functionSurfaces_STATIC")
   )
 ))
 
@@ -120,6 +111,14 @@ rb2holes_panel <- tabPanel("rb2holes", fluidPage(
 ))
 
 ##### widget_rotation  -----
+rgl_widget_rotation <- function(inputId, value="", nrows, ncols) {
+  ## This code includes the javascript to return the rotation matrix of the widget.
+  tagList(
+    singleton(tags$head(tags$script(src = "rglwidgetaux.js"))),
+    tags$div(id = inputId,class = "rglWidgetAux",as.character(value))
+  )
+}
+
 widget_rotation_panel <- tabPanel("widget rotation", fluidPage(
   rgl_widget_rotation('ctrlplot3d'),
   actionButton("regen", "Regen Scene"),
@@ -133,12 +132,12 @@ widget_rotation_panel <- tabPanel("widget rotation", fluidPage(
 ui <- fluidPage(
   h2("Nicholas Spyrison, 2020/05/29"),
   navbarPage("WebGL 3D visualizations, `rgl` package",
+             functionSurfaces_panel,
              rb2holes_panel,
+             widget_rotation_panel,
              pca_kde3d_panel,
              pca_kde2d_panel,
-             logLik_panel,
-             functionSurfaces_panel,
-             widget_rotation_panel
+             logLik_panel
   )
 )
 

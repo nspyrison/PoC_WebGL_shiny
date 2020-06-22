@@ -46,78 +46,54 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
   n_tpath_bases <- dim(rb2holes_tpath)[3]
   
   rb2holes_proj    <- array(NA, dim = c(  n, d, n_tpath_bases))
-  basis_convex_box <- array(NA, dim = c(2^d, d, n_tpath_bases))
   for (i in 1:n_tpath_bases){
     rb2holes_proj[,, i] <- dat %*% matrix(rb2holes_tpath[,, i], nrow = p)
-    
-    x_min <- min(rb2holes_proj[, 1, i])
-    y_min <- min(rb2holes_proj[, 2, i])
-    z_min <- min(rb2holes_proj[, 3, i])
-    x_max <- max(rb2holes_proj[, 1, i])
-    y_max <- max(rb2holes_proj[, 2, i])
-    z_max <- max(rb2holes_proj[, 3, i])
-    basis_convex_box[,, i] <- as.matrix(data.frame(
-      x = c(x_min, x_max, x_min, x_min, x_max, x_max, x_max, x_min),
-      y = c(y_min, y_min, y_max, y_min, y_max, y_max, y_min, y_max),
-      z = c(z_min, z_min, z_min, z_max, z_max, z_min, z_max, z_max)
-    ))
   }
-  holes_proj <- rb2holes_proj[,, n_tpath_bases]
   
-  ### 2d Kernal density estimate
-  holes_kde2d <- MASS::kde2d(holes_proj[, 1], holes_proj[, 2])
-  
-  ### Aesthetic init
+  ## Pan tour to be in the "first quadrant"
   x_min <- min(rb2holes_proj[, 1, ])
   y_min <- min(rb2holes_proj[, 2, ])
   z_min <- min(rb2holes_proj[, 3, ])
-  x_max <- max(rb2holes_proj[, 1, ])
-  y_max <- max(rb2holes_proj[, 2, ])
-  z_max <- max(rb2holes_proj[, 3, ])
-  tour_convex_box <- data.frame(
-    x = c(x_min, x_max, x_min, x_min, x_max, x_max, x_max, x_min) , 
-    y = c(y_min, y_min, y_max, y_min, y_max, y_max, y_min, y_max), 
-    z = c(z_min, z_min, z_min, z_max, z_max, z_min, z_max, z_max)
-  )
+  rb2holes_proj[, 1, ] <- rb2holes_proj[, 1, ] - x_min
+  rb2holes_proj[, 2, ] <- rb2holes_proj[, 2, ] - y_min
+  rb2holes_proj[, 3, ] <- rb2holes_proj[, 3, ] - z_min
+  holes_proj <- rb2holes_proj[,, n_tpath_bases] ## Save final holes() basis. 
+  
+  ## 2d Kernal density estimate
+  holes_kde2d <- MASS::kde2d(holes_proj[, 1], holes_proj[, 2], n = 60)
 }
 
-####### shiny server start =====
+####### Shiny server start =====
 server <- shinyServer(function(input, output, session) { ## Session required.
-  # try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-  # app_CloseRGL()
+  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
   save <- options(rgl.inShiny = TRUE)
-  on.exit({options(save); try(rgl.close(), silent = TRUE)})
+  on.exit({
+    options(save); 
+    try(rgl.close(), silent = TRUE)
+    # try(rstudioapi::restartSession(), silent = TRUE) ## Release greedy CPU usage.
+  })
   
   ##### rb2holes =====
-  #app_CloseRGL()
-  updateSliderInput(session, "rb2holes_basis_slider", 
-                    value = 1, step = 1, min = 1, max = n_tpath_bases)
-  
   slider <- reactive(input$rb2holes_basis_slider)
   slider_t <- throttle(slider, millis = 50) 
   output$slider_t <- renderText(slider_t())
   ## Reactive function, throttled slider value, returning value every 'millis' milliseconds, 
   #### _ie_ "Try to return value even while manipulating slider every .05 sec."
   
+  updateSliderInput(session, "rb2holes_basis_slider", 
+                    value = 1, step = 1, min = 1, max = n_tpath_bases)
   
   rb2holes_rglwidget <- reactive({
-    #app_CloseRGL()
-    req(slider_t())
-    ## Selected projection basis and convex box from input slider.
+    req(slider_t()) ## req(x) works, validate(need(x)) does not.
     this_proj <- rb2holes_proj[,, slider_t()]
-    this_convex_box <- basis_convex_box[,, slider_t()]
     
-    ## Open scene with isopectric perspective
+    ## Open scene with isopectric/parallel perspective
+    try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
     open3d(FOV = 0)
     ## Plot projection points
     spheres3d(this_proj[, 1], this_proj[, 2], this_proj[, 3], 
               radius = .ptRad, col = ptCol)
     
-    ## Prop up basis and fulll tour convex bounding box
-    spheres3d(this_convex_box[, 1], this_convex_box[, 2], this_convex_box[, 3], 
-              radius = .ptRad / 2, col = "black")
-    spheres3d(tour_convex_box[, 1], tour_convex_box[, 2], tour_convex_box[, 3], 
-              radius = .ptRad / 2, col = "grey")
     ## Aesthetic setup
     bg3d(color = .bg)
     bbox3d(xlen = 0, ylen = 0, zlen = 0,
@@ -142,17 +118,18 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   ##### holes_kde3d =====
   ## Kernal estimation on covar matrix 
   ## Loosely, the smallest n-D ellipsoid containing 'level'% of the observations from the estimated distribution.
-  # try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-  #app_CloseRGL()
+  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
   open3d(FOV = 0)
   spheres3d(holes_proj[, 1], holes_proj[, 2], holes_proj[, 3], 
-            radius = .ptRad, col = ptCol)  
+            radius = .ptRad, col = ptCol)
+  ## Create and add ellipsoid for full sample 
   ellips <- 
     ellipse3d(cov(holes_proj[, 1:3]), level = 0.68,
               centre = apply(holes_proj, 2, mean))
   wire3d(ellips,  add = T, type = "wire",
          col = "grey", alpha = 1 - .a, shininess = .shine)
   
+  ## Create and add ellipsoid for each species
   for (i in 1:length(ptCol_pal)){
     .dat      <- holes_proj[ptCol == ptCol_pal[i], ]
     cl_ellips <- ellipse3d(cov(.dat[, 1:3]), level = 0.68,
@@ -171,11 +148,13 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   ##### holes_kde2d =====
   ## via MASS::kde2d()
   ## Can't seem to get type="wire" and some other options working
-  # try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-  #app_CloseRGL()
+  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
   open3d(FOV = 0)
+  
+  ## Plot 2D scatterplot
   spheres3d(holes_proj[, 1], holes_proj[, 2], rep(0, n), 
             radius = .ptRad, col = ptCol)
+  ## Add kde2d wire surface
   persp3d(holes_kde2d, add = T,
           col = "red", alpha = 1 - .a, shininess = .shine)
   
@@ -188,8 +167,9 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   
   ##### logLik =====
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-  #app_CloseRGL()
   open3d(FOV = 0)
+  
+  ## Calculation init
   x   <- rgamma(100, shape = 5, rate = 0.1)
   fit <- fitdistr(x, dgamma, list(shape = 1, rate = 0.1), lower = 0.001)
   loglik <- function(shape, rate)
@@ -198,11 +178,15 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   
   xlim <- fit$estimate[1] + 4 * fit$sd[1] * c(-1, 1)
   ylim <- fit$estimate[2] + 4 * fit$sd[2] * c(-1, 1)
+  
+  ## Rendering
   mfrow3d(1, 2, sharedMouse = TRUE)
+  ## (left) log-likelihood surface scaling to x and y limits.
   persp3d(loglik,
           xlim = xlim, ylim = ylim,
           n = 30)
   
+  ## (right) log-likelihood surface scaling all 3 axes limits.
   zlim <- fit$loglik + c(-qchisq(0.99, 2) / 2, 0)
   next3d()
   persp3d(loglik,
@@ -219,38 +203,61 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   ## Following example for surf3D in: 
   # browseURL("https://cran.r-project.org/web/packages/plot3D/vignettes/plot3D.pdf")
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-  #app_CloseRGL()
+  open3d(FOV = 0)
+  
+  load(file = "./data/df_func_surface1.rda") ## Brings df into global environment.
+  df$y1 <-  diff(range(df$x1)) / diff(range(df$y1)) * df$y1
+  ## alt 
+  df <- as.data.frame(tourr::rescale(df))
+  
+  ## Render
+  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
   open3d(FOV = 0)
   mfrow3d(1, 2, sharedMouse = FALSE)
-  .f1 = function(x, y){
-    z = ((x^2) + (3 * y^2)) * exp(-(x^2) - (y^2))
-  }
-  plot3d(.f1, col = colorRampPalette(c("blue", "red")), 
-         xlab = "X", ylab = "Y", zlab = "Z", 
-         xlim = c(-3, 3), ylim = c(-3, 3),
-         aspect = c(1, 1, 0.5))
-  
-  .f2 = function(x, y){
-    z = (x^2) + (y^3)
-  }
-  plot3d(.f2, col = colorRampPalette(c("white", "black")),
-         xlab = "X", ylab = "Y", zlab = "Z",
-         xlim = c(-10, 10), ylim = c(-4, 4))
+  bbox3d(#xlen = 0, ylen = 0, zlen = 0,
+         color = "black" , alpha = .a, emission = .bg, lwd = 1)
+  spheres3d(x = df$x1, y = df$x2, z = df$y1, radius = .ptRad,
+            xlim = c(-3, 3), ylim = c(-3, 3), zlim = c(min(df$y1), max(df$y1)))
   scene_functionSurfaces <- scene3d()
   
   output$widget_functionSurfaces <- renderRglwidget(
     rglwidget(scene_functionSurfaces)
   )
   
+  ## Static functions
+  .f1 = function(x, y){
+    z = ((x^2) + (3 * y^2)) * exp(-(x^2) - (y^2))
+  }
+  .f2 = function(x, y){
+    z = (x^2) + (y^3)
+  }
+  
+  ## Render
+  try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
+  open3d(FOV = 0)
+  mfrow3d(1, 2, sharedMouse = FALSE)
+  plot3d(.f1, col = colorRampPalette(c("blue", "red")), 
+         xlab = "X", ylab = "Y", zlab = "Z", 
+         xlim = c(-3, 3), ylim = c(-3, 3),
+         aspect = c(1, 1, 0.5))
+  plot3d(.f2, col = colorRampPalette(c("white", "black")),
+         xlab = "X", ylab = "Y", zlab = "Z",
+         xlim = c(-10, 10), ylim = c(-4, 4))
+  scene_functionSurfaces_STATIC <- scene3d()
+  
+  output$widget_functionSurfaces_STATIC <- renderRglwidget(
+    rglwidget(scene_functionSurfaces_STATIC)
+  )
+  
   ### widget_rotation -----
+  ## !!NOTE .js file may have hardcoded names, change slowly and carfully.
   observe({
-    # tell our rglWidgetAux to query the plot3d for its par3d
+    ## Tells .www/rglwidgetaux.js to query the plot3d for its par3d
     input$queryumat
     session$sendInputMessage("ctrlplot3d", list("cmd"="getpar3d","rglwidgetId"="plot3d"))
   })
   
   output$usermatrix <- renderTable({
-    ## NOTE .js file may have hardcoded names, change slowly and carfully.
     shiny::validate(need(!is.null(input$ctrlplot3d),"User Matrix not yet queried"))
     rmat <- matrix(0,4,4)
     jsonpar3d <- input$ctrlplot3d
@@ -262,7 +269,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   })
   
   scenegen <- reactive({
-    # make a random scene
+    ## Create scene
     input$regen
     n <- 1000
     x <- sort(rnorm(n))
@@ -275,10 +282,6 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     return(scene1)
   })
   output$plot3d <- renderRglwidget({ rglwidget(scenegen()) })
-  
-  
- 
-  
   
 })
 
