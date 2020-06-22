@@ -53,7 +53,7 @@ rb2holes_panel <- tabPanel("rb2holes", fluidPage(
 ##### rgl -----
 rgl_panel <- tabPanel("rgl", fluidPage(
   mainPanel(
-    h2("1 Std Dev ellipsoids of 3D Kernal density (conf = 68%)"),
+    h2("Loosely, the smallest 3D ellipsoid containing 68% of the observations from the estimated distribution."),
     rglwidgetOutput("rgl")
   )
 ))
