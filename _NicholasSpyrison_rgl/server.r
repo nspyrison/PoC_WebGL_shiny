@@ -7,7 +7,7 @@ require("shiny")
 require("rgl")
 require("MASS")
 require("tourr")
-source("ui.r", local = TRUE)
+source("./ui.r", local = TRUE)
 set.seed(20200527)
 options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless devices.
 
@@ -45,7 +45,7 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
                  tour_path = guided_tour(holes(), d = d, max.tries = 100))
   n_tpath_bases <- dim(rb2holes_tpath)[3]
   
-  rb2holes_proj    <- array(NA, dim = c(  n, d, n_tpath_bases))
+  rb2holes_proj <- array(NA, dim = c(  n, d, n_tpath_bases))
   for (i in 1:n_tpath_bases){
     rb2holes_proj[,, i] <- dat %*% matrix(rb2holes_tpath[,, i], nrow = p)
   }
@@ -205,19 +205,22 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
   open3d(FOV = 0)
   
-  load(file = "./data/df_func_surface1.rda") ## Brings df into global environment.
-  df$y1 <-  diff(range(df$x1)) / diff(range(df$y1)) * df$y1
-  ## alt 
-  df <- as.data.frame(tourr::rescale(df))
+  load(file = "./data/df_func_surface2.rda") ## Brings df into global environment.
+  ..ptRad <- diff(range(df$x1)) * .ptRad
   
   ## Render
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-  open3d(FOV = 0)
-  mfrow3d(1, 2, sharedMouse = FALSE)
+  open3d(FOV = 0, zoom = 1)
   bbox3d(#xlen = 0, ylen = 0, zlen = 0,
-         color = "black" , alpha = .a, emission = .bg, lwd = 1)
-  spheres3d(x = df$x1, y = df$x2, z = df$y1, radius = .ptRad,
-            xlim = c(-3, 3), ylim = c(-3, 3), zlim = c(min(df$y1), max(df$y1)))
+    color = "black" , alpha = .a, emission = .bg, lwd = 1)
+  mfrow3d(2, 2, sharedMouse = FALSE)
+  spheres3d(x = df$x1, y = df$x2, z = df$y1,   radius = ..ptRad, col = "black")
+  next3d()
+  spheres3d(x = df$x1, y = df$x2, z = df$y2,   radius = ..ptRad, col = "red")
+  next3d()
+  spheres3d(x = df$x1, y = df$x2, z = df$y1.5, radius = ..ptRad, col = "green")
+  next3d()
+  spheres3d(x = df$x1, y = df$x2, z = df$y3,   radius = ..ptRad, col = "yellow")
   scene_functionSurfaces <- scene3d()
   
   output$widget_functionSurfaces <- renderRglwidget(
@@ -240,6 +243,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
          xlab = "X", ylab = "Y", zlab = "Z", 
          xlim = c(-3, 3), ylim = c(-3, 3),
          aspect = c(1, 1, 0.5))
+  next3d()
   plot3d(.f2, col = colorRampPalette(c("white", "black")),
          xlab = "X", ylab = "Y", zlab = "Z",
          xlim = c(-10, 10), ylim = c(-4, 4))

@@ -88,10 +88,14 @@ logLik_panel <- tabPanel("logLik", fluidPage(
 functionSurfaces_panel <- tabPanel("functionSurfaces", fluidPage(
   mainPanel(
     h2("function surfaces, as sampled from geozoo and mvtnorm"),
-    p("x: Grid values of 3D cube between [-3,3] y: Multivariate Normal Density(x, 0)"),
-    p("left: orthagonal view; c(x1, x2, y1)"),
-    p("right: NULL"),
+    p("x1:3: Grid values of 3D cube between [-3,3]"),
+    p("y1: Multivariate Normal Density(x, 0), normalized to a range of 6."),
+    p("top left (black): orthagonal view; x1, x2, y1 = dmvnorm"),
+    p("top right (red): orthagonal view; x1, x2, y2 = simulated var-cov mat"),
+    p("bottom left (green): orthagonal view; x1, x2, 'y1.5' = .5*y1 + .5*y2"),
+    p("bottom right (yellow): orthagonal view; x1, x2, y3 = .5 * (max(y1) - y1) + .5 *y2"),
     rglwidgetOutput("widget_functionSurfaces"),
+    hr(),
     h2("Static function surfaces, z = f(x,y)"),
     p("left:  z = ((x^2) + (3 * y^2)) * exp(-(x^2) - (y^2))"),
     p("right: z = (x^2) + (y^3); inflection pt not at extrema."),
