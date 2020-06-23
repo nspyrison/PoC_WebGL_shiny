@@ -21,7 +21,7 @@ nsCloseRGL()
 
 #### ns example 1 -- unit lines -----
 open3d()
-spheres3d(z, y, z, radius = .05) ## radius is the same size as the values.
+spheres3d(x, y, z, radius = .05) ## radius is the same size as the values.
 lines3d(c(0, 1), c(0, 0), c(0, 0), color = "black") 
 lines3d(c(0, 0), c(0, 1), c(0, 0), color = "red")
 lines3d(c(0, 0), c(0, 0), c(0, 1), color = "green")

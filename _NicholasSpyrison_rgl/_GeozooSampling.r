@@ -32,12 +32,14 @@ library("lqmm")
 set.seed(123)
 n <- nrow(x)
 p <- ncol(x)
-var_x <- var(x)[1, 1]
-vc_mat <-  diag(p) #* var_x
+
+vc_mat <-  diag(p) * var_x
 lt_idx <- lower.tri(vc_mat)
-.norm <- rnorm(n = p, mean = 0, sd = var_x^(1 / 4)) ## rnorm sample off diag cov matrix values
+.norm <- rnorm(n = p, mean = 0, sd = 1) ## rnorm sample off diag cov matrix values
 vc_mat[lt_idx] <- vc_mat[t(lt_idx)] <- .norm ## assign symetric vales to lower and uper triandgles
 vc_mat <- lqmm::make.positive.definite(vc_mat)
+#cov(x) #default var-cov matrix
+
 
 y2 <- mvtnorm::dmvnorm(x, mean = c(0, 0, 0), sigma = vc_mat)
 y2 <- 6 * scales::rescale(y2) ## Normalize range to 0:6
@@ -51,5 +53,5 @@ y3 <- 6 * scales::rescale(y3)
 df <- data.frame(x, y1, y2, y1.5, y3)
 
 if (F){
-  save(df2, file = "./_NicholasSpyrison_rgl/data/df_func_surface2.rda")
+  save(df, file = "./_NicholasSpyrison_rgl/data/df_func_surface2.rda")
 }

@@ -1,10 +1,16 @@
 ##### _NicholasSpyrison_rlg/ui.r setup ----
 #' shiny UI for  server.r
 require("shiny")
+require("MASS")
+require("tourr")
 require("rgl")
 require("RColorBrewer")
 require("htmlwidgets")
 require("jsonlite")
+require("geometry")
+library("alphashape3d")
+set.seed(20200527)
+options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless devices.
 
 w <- h <- "600px" ## height and width of the rgl widget in pixels, 
 
@@ -88,12 +94,11 @@ logLik_panel <- tabPanel("logLik", fluidPage(
 functionSurfaces_panel <- tabPanel("functionSurfaces", fluidPage(
   mainPanel(
     h2("function surfaces, as sampled from geozoo and mvtnorm"),
-    p("x1:3: Grid values of 3D cube between [-3,3]"),
-    p("y1: Multivariate Normal Density(x, 0), normalized to a range of 6."),
-    p("top left (black): orthagonal view; x1, x2, y1 = dmvnorm"),
-    p("top right (red): orthagonal view; x1, x2, y2 = simulated var-cov mat"),
-    p("bottom left (green): orthagonal view; x1, x2, 'y1.5' = .5*y1 + .5*y2"),
-    p("bottom right (yellow): orthagonal view; x1, x2, y3 = .5 * (max(y1) - y1) + .5 *y2"),
+    p("x1:3: grid values of 3D cube between [-3,3]"),
+    p("top left (blue): orthogonal view; x1, x2, y1 = dmvnorm(0, cov(x))"),
+    p("top right (red): orthogonal view; x1, x2, y2 = dmvnorm(sim. var-cov mat)"),
+    p("bottom left (cyan): orthogonal view; x1, x2, 'y1.5' = .5*y1 + .5*y2"),
+    p("bottom right (purple): orthogonal view; x1, x2, y3 = .5 * (max(y1) - y1) + .5 *y2"),
     rglwidgetOutput("widget_functionSurfaces"),
     hr(),
     h2("Static function surfaces, z = f(x,y)"),
