@@ -263,19 +263,25 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   ## Static functions
   .f1 = function(x, y) z = ((x^2) + (3 * y^2)) * exp(-(x^2) - (y^2))
   .f2 = function(x, y) z = (x^2)  + (y^3)
+  .f3 = function(x, y) z = sin(x + y) - sqrt(x + y) / (2 * pi)
   
   ## Render
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
   open3d(FOV = 0)
-  mfrow3d(1, 2, sharedMouse = FALSE)
-  plot3d(.f1, col = colorRampPalette(c("blue", "red")), alpha = .a_surface,
+  mfrow3d(2, 2, sharedMouse = FALSE)
+  plot3d(.f1, col = colorRampPalette(c("purple", "pink")), alpha = .a_surface,
          xlab = "X", ylab = "Y", zlab = "Z", 
-         xlim = c(-3, 3), ylim = c(-3, 3),
-         aspect = c(1, 1, 0.5))
+         xlim = c(-3, 3), ylim = c(-3, 3), aspect = c(1, 1, 0.5))
   next3d()
   plot3d(.f2, col = colorRampPalette(c("white", "black")), alpha = .a_surface,
          xlab = "X", ylab = "Y", zlab = "Z",
          xlim = c(-10, 10), ylim = c(-4, 4))
+  next3d()
+
+  plot3d(.f1, col = colorRampPalette(c("blue", "red")), alpha = .a_surface,
+         xlim = c(-3, 3), ylim = c(-3, 3), aspect = c(1, 1, 0.5))
+  ## a x + b y + c z + d = 0. 
+  planes3d(a = 0, b = 0, c = .7, d = -.5, col = "yellow", alpha = .a_surface)
   scene_functionSurfaces_STATIC <- scene3d()
   
   output$widget_functionSurfaces_STATIC <- renderRglwidget(
