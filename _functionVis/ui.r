@@ -2,6 +2,7 @@
 #' shiny UI for  server.r
 require("shiny")
 require("MASS")
+require("spinifex") ## v0.2.9000 and up
 require("tourr")
 require("rgl")
 require("RColorBrewer")
@@ -11,28 +12,6 @@ require("geometry")
 library("alphashape3d")
 
 w <- h <- "600px" ## height and width of the rgl widget in pixels, as applied in UI *Output() function.
-
-##### Local app_* functions -----
-##TODO: move to spinifex
-app_col_of <- function(class, pallet_name = "Dark2") {
-  .l_lvls <- length(levels(class))
-  if (.l_lvls == 0) stop("Length of 'class' cannot be zero.")
-  if (.l_lvls > 12) stop("'class' has more than the expected max of 12 levels.")
-  pal <- suppressWarnings(RColorBrewer::brewer.pal(.l_lvls, pallet_name))
-  pal[as.integer(factor(class))]
-}
-##TODO: move to spinifex
-app_pch_of <- function(class) {
-  .shape_ord <- c(21:25, 3:4, 7:14)
-  .l_shape_lvls <- length(unique(.shape_ord))
-  if (is.factor(class) == FALSE) class <- as.factor(class)
-  .l_class_lvls <- length(levels(class))
-  if (.l_lvls == 0) stop("Length of 'class' cannot be zero.")
-  if (.l_lvls > 12) stop("'class' has more than the expected max of 12 levels.")
-  
-  int_lvls <- as.integer(factor(class))
-  y_ord[int_lvls]
-}
 
 ##### Start of shiny ui ----
 ### Following: 

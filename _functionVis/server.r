@@ -32,8 +32,8 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
   p         <- ncol(dat)
   d         <- 3
   rb        <- tourr::basis_random(p, d)
-  ptCol     <- app_col_of(tourr::flea$species)
-  ptPch     <- app_pch_of(tourr::flea$species)
+  ptCol     <- spinifex::col_of(tourr::flea$species)
+  ptPch     <- spinifex::pch_of(tourr::flea$species)
   ptCol_pal <- unique(ptCol)
   
   ## Find tour bases and project data
