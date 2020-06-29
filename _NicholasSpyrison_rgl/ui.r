@@ -1,4 +1,4 @@
-##### _NicholasSpyrison_rlg/ui.r setup ----
+####### _NicholasSpyrison_rlg/ui.r ----
 #' shiny UI for  server.r
 require("shiny")
 require("MASS")
@@ -35,7 +35,7 @@ app_pch_of <- function(category) {
 ##### Start of shiny ui ----
 ### Following: 
 ## https://stackoverflow.com/questions/39363384/how-to-remove-unwanted-text-output-with-shiny-rgl
-# shiny::runApp(system.file("shinyDemo",  package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
+# shiny::runApp(system.file("shinyDemo",   package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 # shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 
 
@@ -102,20 +102,22 @@ functionSurfaces_panel <- tabPanel("functionSurfaces", fluidPage(
     p("bottom right (purple): orthogonal view; x1, x2, y3 = .5 * (max(y1) - y1) + .5 *y2"),
     rglwidgetOutput("widget_functionSurfaces"),
     h4("Thoughts on function vis:"),
-    p("- We can only visualize shapes/surfaces in `d={2,3}`."),
+    p("- We can only visualize shapes/surfaces in `d = {2,3}`."),
     p("- We could treat function values as another dimension, though this seems uninteresting, might need freezing."),
-    p("- I understand projections a function values/grids at given points, but don't understand if it's possible to project continuouse function surfaces, without quickly going to a non-euclidian projection space."),
+    p("- Projections of a function values/grid-points understandable, but don't understand if it's possible to project continuouse function surfaces, without quickly going to a non-euclidian projection space."),
     p("- I don't think we have to lock in values for `p-d`-dimensions, because each variable has a contribution to projections space."),
     h4("Re: Kavan & fermi surfaces; I am going to tour on densely highlighted points of equal radius on a complex (fermi) surface "),
-    p("- 3D example: given an oragami crane; draw lines that are exactly `r` radius away from the center. Sample points from the surface, highlighting points on the lines against a backdrop of grey points on the remaining surface. Tour in the original, but highlighted `p`-space."),
-    p("- note that only a small region of `r` (if any) will be a single closed loop."),
-    p("- 4D example: on a 4D cube, draw lines that are exactly `r` radius away from the center. Sample from the points surface, highlighting points on the lines against a backdrop of grey points on the remaining surface. Tour in the original, but highlighted `p`-space."),
+    p("- 3D example: given an oragami crane; draw lines on the surface that are exactly `r` radius away from the center. Sample points from the surface, highlighting points on the lines against a backdrop of grey points on the remaining surface. Tour in the original, but highlighted `p`-space."),
+    p("-- Simpler 2,3D example: 2,3D heart"),
+    p("-- Note that only a small region of `r` (if any) will be a single closed loop."),
+    p("--> Map each closed loop of the same radius as a different shape in the same color?"),
+    p("- 4D example: on a 4D cube, draw lines on surface that are exactly `r` radius away from the center (enscribe 4D-sphere of radius `r`). Sample from the points surface, highlighting points on the lines against a backdrop of grey points on the remaining surface. Tour in the original, but highlighted `p`-space."),
     p("- Potentially interesting: as a function of radius, plot some measure of the range of the phase-space/volume able to be reached."),
     p("- Is this related to function visualization? _ie_ The same as defining the a function value (exact radius) and highlighting only where it intersects the surface/sample?"),
     hr(),
     h2("Static function surfaces, z = f(x,y)"),
     p("left:  z = ((x^2) + (3 * y^2)) * exp(-(x^2) - (y^2))"),
-    p("right: z = (x^2) + (y^3); inflection pt not at extrema."),
+    p("right: z = (x^2) + (y^3); inflection point not at a global extrema."),
     rglwidgetOutput("widget_functionSurfaces_STATIC")
   )
 ))
