@@ -1,6 +1,7 @@
 ####### _functionVis/ui.r ----
 #' shiny UI for  server.r
 require("shiny")
+require("shinyWidgets")
 require("MASS")
 require("spinifex") ## v0.2.9000 and up
 require("tourr")
@@ -20,11 +21,29 @@ w <- h <- "600px" ## height and width of the rgl widget in pixels, as applied in
 # shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 
 functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'", fluidPage(
-  sidebarPanel(width = 3,
-               uiOutput("backDimensionInputs")
+  sidebarPanel(
+    width = 3,
+    fluidRow(
+      column(width = 6,
+             shinyWidgets::switchInput(inputId = "DO_DISP_a_hull_triang", 
+                                       label = "Display alpha hull triangles", 
+                                       value = TRUE)),
+      column(width = 6,
+             conditionalPanel(
+               "input.DO_DISP_a_hull_triang == true",
+               numericInput("a_hull_radius", label = "Alpha hull radius [1/alpha]", 
+                            value = 1, min = .05, max = 1, step = .05)
+             ) 
+      ),
+      numericInput("tgt_rel_h", 
+                   "Target fraction of obs (slice thickness defaults to x^(p-d))",
+                   value = .25, ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
+                   min = .05, max = 1, step = .05)
+    ),
+    uiOutput("backDimensionInputs")
   ),
   mainPanel(
-    1
+    rglwidgetOutput("widget_functionVis")
   )
 ))
 
