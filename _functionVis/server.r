@@ -70,6 +70,8 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
                     centre = apply(dat, 2, mean))
 }
 
+
+
 ####### Shiny server start =====
 server <- shinyServer(function(input, output, session) { ## Session required.
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
@@ -80,6 +82,84 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     # try(rstudioapi::restartSession(), silent = TRUE) ## Release greedy CPU usage.
   })
   
+  ##### functionVis =====
+  dat_dmvn <- reactive({
+    dat <- tourr::flea[, 1:6]
+    dat <- tourr::rescale(dat)
+    dat_mn  <- apply(dat, 2, mean)
+    dat_cov <- cov(dat)
+    dmvn <- mvtnorm::dmvnorm(dat, mean = dat_mn, sigma = dat_cov)
+    cbind(dmvn, dat)
+  })
+  
+  dat_star <- reactive({
+    .dat <- dat_dmvn()
+    dim_nms <- colnames(.dat)
+    p <- ncol(.dat)
+    d <- 3
+    bd <- p-d
+    
+    i_s <- bd:p
+    bd_cond_mat <- NULL
+    apply(i_s, 2, function(i){
+      .dim   <- .dat[,i]
+      .range <- abs(max(.dim) - min(.dim))
+      .midpt <- input[[paste0("bd_slider_", i)]]
+      .thickness <- input[[paste0("bd_sliceSize_", i)]] * .range
+      .lb <- .midpt - .thickness / 2
+      .ub <- .midpt + .thickness / 2
+      .cond <- .dim >= .lb & .dim <= .ub
+      bd_cond_mat <- cbind(bd_cond, .cond)
+    })
+    
+    j_s <- i_s - d
+    bd_cond_vect <- T
+    apply(j_s, 2, function(i){
+      .increment <- bd_cond_vect[, i]
+      bd_cond_vect <- bd_cond_vect & .increment
+    })
+    
+    .dat[bd_cond_vect, ]
+  })
+  
+  
+  
+  output$backDimensionInputs <- renderUI({
+    .dat <- dat_dmvn()
+    dim_nms <- colnames(.dat)
+    p <- ncol(.dat)
+    d <- 3
+    bd <- p-d
+    
+    ## Make midpoint sliders
+    i_s <- bd:p
+    bd_sliders <- lapply(i_s, function(i) {
+      .min <- min(.dat[, i])
+      .max <- max(.dat[, i])
+      .step <- round((.max - .min) / 10, 1)
+      sliderInput(inputId = paste0("bd_slider_", i), 
+                  label = paste(dim_nms[i], "slice midpoint"),
+                  min = .min, max = .max, value = (.min + .max) /2, 
+                  step = .step, round = -1)
+    })
+    ## Make thickness numeric inputs
+    bd_thickness <- lapply(i_s, function(i) {
+      numericInput(inputId = paste0("bd_sliceSize_", i), 
+                   label = "rel slice size [h/r_max]",
+                   min = 0, max = 1, value = .2, step = .05)
+    })
+    
+    ## Make sliders and thickness into ordered rows.
+    j_s <- 1:length(bd_sliders)
+    lapply(j_s, function(j) {
+      fluidRow(
+        column(7, bd_sliders[[j]]),
+        column(5, bd_thickness[[j]])
+      )
+    })
+  })
+  
+  
   ##### STALE_functionSurfaces =====
   ## ON ICE, see same tab in \_NicholasSpyrison_rgl\ app for recency.
   
@@ -87,7 +167,6 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   load(file = "./data/df_func_surface2.rda") ## Brings df into global environment.
   ..ptRad <- diff(range(df$x1)) * .ptRad
   ..pal   <- c("blue", "red", "cyan", "purple")
-  ..y_nms <- paste0("y", c(1:2, 1.5, 3))
   ..y_idx <- 4:7
   
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::

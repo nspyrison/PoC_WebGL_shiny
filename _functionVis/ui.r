@@ -20,11 +20,16 @@ w <- h <- "600px" ## height and width of the rgl widget in pixels, as applied in
 # shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 
 functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'", fluidPage(
-  1
+  sidebarPanel(width = 3,
+               uiOutput("backDimensionInputs")
+  ),
+  mainPanel(
+    1
+  )
 ))
 
 ##### STALE_functionSurfaces -----
-STALE_functionSurfaces_panel <- tabPanel("functionSurfaces", fluidPage(
+STALE_functionSurfaces_panel <- tabPanel("functionSurfaces_fromPoC", fluidPage(
   mainPanel(
     h2("function surfaces, sampled from `geozoo` and y from `mvtnorm`::dmvnorm()"),
     p("x1:3: grid values of 3D cube between [-3,3]"),
