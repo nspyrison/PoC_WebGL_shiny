@@ -2,17 +2,14 @@
 #' shiny UI for  server.r
 require("shiny")
 require("shinyWidgets")
-require("MASS")
-require("spinifex") ## v0.2.9000 and up
 require("tourr")
+require("spinifex") ## v0.2.9000 and up
 require("rgl")
-require("RColorBrewer")
-require("htmlwidgets")
-require("jsonlite")
-require("geometry")
 library("alphashape3d")
+require("RColorBrewer")
+require("ggplot2")
 
-w <- h <- "600px" ## height and width of the rgl widget in pixels, as applied in UI *Output() function.
+w <- h <- "640px" ## height and width of the rgl widget in pixels, as applied in UI *Output() function.
 
 ##### Start of shiny ui ----
 ### Following: 
@@ -40,10 +37,10 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
                    value = .25, ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
                    min = .05, max = 1, step = .05)
     ),
-    uiOutput("backDimensionInputs")
+    uiOutput("back_dimensions_ui")
   ),
   mainPanel(
-    rglwidgetOutput("widget_functionVis")
+    rglwidgetOutput("widget_functionVis", w, h)
   )
 ))
 
