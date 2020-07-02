@@ -15,7 +15,7 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
   ## Some aesthetics setup:
   rad_pts        <- .02 ## radius of data points spheres
   alpha_bbox     <- .6  ## alpha opacity for boundingbox and axes lines
-  alpha_a_hull   <- .1  ## alpha opacity for triangles of the exterior alpha hull
+  alpha_a_hull   <- .2  ## alpha opacity for triangles of the exterior alpha hull
   col_bg         <- "lightgrey" # "grey80" ## color for the back ground & "emission" arg
   col_bbox       <- "black"     # "grey20" ## color for the bounding box (widget cell)
   pal_surfaces   <- c("blue", "red", "cyan", "purple") # RColorBrewer::brewer.pal(n = 4, "Paired") 
@@ -29,8 +29,6 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
   p         <- ncol(dat)
   d         <- 3
   rb        <- tourr::basis_random(p, d)
-  col_pts   <- spinifex::col_of(tourr::flea$species)
-  pal_pts   <- unique(col_pts)
 }
 
 app_hist <- function(x, var_nm, lb, ub){
@@ -47,13 +45,50 @@ app_hist <- function(x, var_nm, lb, ub){
     geom_histogram(aes(y = ..density..), bins = .bins, colour = "black", fill = "grey") +
     #geom_density(alpha = .3, fill = "red") +
     geom_vline(aes(xintercept = .med),
-               color = "blue", linetype = "dashed", size = 1,) + 
+               color = "blue", linetype = "dashed", size = 1) + 
     geom_rect(aes(ymin = -.y_q1, ymax = .y_q1, xmin = lb, xmax = ub),
               fill = "blue", alpha = .01) +
     theme_void() + 
     theme(axis.title.x = element_text()) + 
     labs(x = var_nm) +
     coord_fixed(ratio =  .2 * .x_range / .y_range) ## Ratio of y/x
+}
+
+
+app_simulate_clusters <- function() {
+  p <- 3
+  k_cl <- 2
+  n_by_cl  <- c(50, 500)
+  mn_by_cl <- list(c(0, 0, 0), c(5, 5, 0))
+  sd_by_cl <- list(c(1, 1, 1), c(1.5, 1.5, 1))
+  { ## Make cov_by_cl given the sd of xy_sd_by_cl, sd of z=0
+    .cov1 <- diag(p) * sd_by_cl[[1]]^2
+    .cov2 <- diag(p) * sd_by_cl[[2]]^2
+    lt_idx <- lower.tri(.cov2) 
+    # matrix(1:9, nrow=3)[lt_idx]  ## Review positions of off diag elements
+    .cov2[lt_idx] <- .cov2[t(lt_idx)] <- c(.7, 0,0) ## set off diag elements to .7
+    .cov1 <- lqmm::make.positive.definite(.cov1)
+    .cov2 <- lqmm::make.positive.definite(.cov2)
+    
+  }
+  cov_by_cl <- list(.cov1, .cov2)
+  
+  ## Create each cluster
+  df <- NULL
+  for (i in 1:k_cl){
+    .cluster <- letters[i]
+    .clust_mat <- mvtnorm::rmvnorm(n = n_by_cl[i], 
+                                   mean = mn_by_cl[[i]], 
+                                   sigma = cov_by_cl[[i]]
+    )
+    .df <- data.frame(x = .clust_mat[, 1], 
+                      y = .clust_mat[, 2],
+                      z = .clust_mat[, 3],
+                      cluster = .cluster)
+    df <- rbind(df, .df)
+  }
+  df$cluster <- as.factor(df$cluster)
+  df
 }
 
 ##### STALE_functionSurfaces =====
@@ -116,31 +151,56 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     1 / input$a_hull_radius
   })
   
-  dat_dmvn <- reactive({
-    dat     <- tourr::flea[, 1:6]
-    dat_mn  <- apply(dat, 2, mean)
-    dat_cov <- cov(dat)
-    dmvn <- mvtnorm::dmvnorm(dat, mean = dat_mn, sigma = dat_cov)
-    dat <- cbind(dat, dmvn)
-    tourr::rescale(dat) ## Rescale is crutial for a hull to work correctly and disp aes.
+  dat_raw <- reactive({
+    if (input$dat == "grid cube") {
+      load(file = "./data/df_func_surface2.rda") ## Brings df into global environment.
+      return(df[, 1:3])
+    }
+    if (input$dat == "simulation") return(app_simulate_clusters())
+    if (input$dat == "flea") return(tourr::flea)
+    if (input$dat == "wine") return(spinifex::wine)
   })
   
-  bd_col_nums <- reactive ({
+  pt_color <- reactive({
+    .dat_raw <- dat_raw()
+    .IS_fct_col <- sapply(.dat_raw, function(col){
+      is.factor(col) | is.character(col)
+    })
+    
+    if (sum(.IS_fct_col) == 0) return(col_of("NO_FCT|CHAR")) ## if not fct|char columns give dummy color
+    .fst_fct_col <- Position(function(x) x == T, .IS_fct_col) ## first column that is fct|char
+    .fst_class <- .dat_raw[, .fst_fct_col]
+    return(col_of(.fst_class))
+  })
+  
+  dat_dmvn <- reactive({
+    .dat_raw <- dat_raw()
+    .IS_numeric_col <- sapply(.dat_raw, is.numeric)
+    .dat_num <- .dat_raw[, .IS_numeric_col]
+    
+    .dat_mn  <- sapply(.dat_num, mean)
+    .dat_cov <- cov(.dat_num)
+    .dmvn <- mvtnorm::dmvnorm(.dat_num, mean = .dat_mn, sigma = .dat_cov)
+    .dat_dmvn <- cbind(.dat_num, .dmvn)
+    tourr::rescale(.dat_dmvn) ## Rescale is crutial for a hull to work correctly and disp aes.
+  })
+  
+  dat_bd <- reactive ({
     .dat <- dat_dmvn()
     .p <- ncol(.dat)
     .x_num <- 1   ## Could change to input
     .y_num <- 2   ## Could change to input
     .z_num <- .p  ## Could be any function, but should be appended to end
-    (1:.p)[-c(.x_num, .y_num, .z_num)]
+    .bd_col_nums <- (1:.p)[-c(.x_num, .y_num, .z_num)]
+    .bd_col_nms  <- colnames(.dat)[.bd_col_nums]
+    as.data.frame(.dat)[.bd_col_nms]
   })
   
   dat_star <- reactive({
     req(input$bd_slice_midpt_1)
     req(input$bd_slice_rel_size_1)
-    .dat <- dat_dmvn()
-    .bd_col_nums <- bd_col_nums()
-    .dat_bd <- .dat[, .bd_col_nums]
     
+    .dat_bd <- dat_bd()
     i_s <- 1:ncol(.dat_bd)
     IS_in_bd_slice_mat  <- NULL ## Logical matrix of rows in each back dimenion slice.
     IS_in_all_bc_slices <- T    ## Logical vector of rows in ALL back dimenion slices.
@@ -161,7 +221,10 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     if (sum(IS_in_all_bc_slices) == 0) stop("Currect slices of the back dimensions contain no observations.")
     
 
-    dat_star <- .dat[IS_in_all_bc_slices, ]
+    .dat     <- dat_dmvn()
+    .bd_col_nms <- colnames(.dat_bd)
+    .disp_col_nums <- !(colnames(.dat) %in% .bd_col_nms)
+    dat_star <- .dat[IS_in_all_bc_slices, .disp_col_nums]
     dat_star
   })
   
@@ -170,9 +233,9 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   #### each triangle alpha level gets indicator factors of: 0 (not on a_hull) 1 (interitor), 2 (regular), 3 (singular)
   full_ashape <- reactive({
     .dat_star_mat  <- as.matrix(dat_star())
+    if(ncol(.dat_star_mat) != 3) stop("full_ashape expected a matrix of 3 columns.")
     ## Possible alpha values for a_hull radius in [.05, 1] by .05.
     .a_hull_alpha_seq <- 1 / seq(.05, 1, by = .05) 
-    
     ## ashape3d obj of all alphas and all shapes (tetra, triang, edge, vertex, x)
     ashape3d(x = .dat_star_mat, 
              alpha = .a_hull_alpha_seq,
@@ -182,10 +245,9 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   
   scene_functionVis <- reactive({
     req(dat_star())
-    
     .dat_star <- dat_star()
-    .disp_col_nms <- colnames(.dat_star[, -bd_col_nums()])
-    .labs <- paste0(c("x, ", "y, ", "z, "), .disp_col_nms)
+    
+    ##### Create a_hull trangles:
     ## Column name specifying the alpha level within a given shape of an ashape3d obj list:
     .alpha_col_nm    <- paste0("fc:", a_hull_alpha()) 
     .ashape_triang   <- full_ashape()$triang
@@ -194,28 +256,34 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     ## Triangles to display; only those on the exterior of the alpha hull.
     .disp_triang <- t(.ashape_triang[.rows_ext_triang, 1:3])
     
+    ## Aesthetic init
+    .disp_col_nms <- colnames(dat_star())
+    .labs <- paste0(c("x, ", "y, ", "z, "), .disp_col_nms)
+    .col <- pt_color()
+    .full_disp_cols <- as.data.frame(dat_dmvn())[.disp_col_nms] ## get full disp cols for setting aspect ratio
+    .x_asp <- 1 / diff(range(.full_disp_cols[, 1]))
+    .y_asp <- 1 / diff(range(.full_disp_cols[, 2]))
+    .z_asp <- 1 / diff(range(.full_disp_cols[, 3]))
+    
     ## Render
     try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
     open3d(FOV = 0, zoom = 1)
     axes3d(.labs, nticks = num_bbox_ticks)
     title3d(xlab = .labs[1], ylab = .labs[2], zlab = .labs[3])
+    aspect3d(.x_asp, .y_asp, .z_asp)
     bbox3d(xlen = 0, ylen = 0, zlen = 0,
            color = col_bbox , alpha = alpha_bbox, emission = col_bg, lwd = 1)
-    .disp_full_range <- dat_dmvn()[, -bd_col_nums()]
-    aspect3d(1 / diff(range(.disp_full_range[, 1])),
-             1 / diff(range(.disp_full_range[, 2])),
-             1 / diff(range(.disp_full_range[, 3])))
   
     ### Spheres
     spheres3d(x = .dat_star[, 1], y = .dat_star[, 2], z = .dat_star[, 3],
-              radius = rad_pts, col = col_pts)
+              radius = rad_pts, col = .col)
     
     ### a_hull triangs
     if (input$DO_DISP_a_hull_triang) {
       triangles3d(.dat_star[.disp_triang, 1],
                   .dat_star[.disp_triang, 2],
                   .dat_star[.disp_triang, 3],
-                  col = pal_surfaces[1], alpha = .005)
+                  col = pal_surfaces[1], alpha = alpha_a_hull)
     }
     
     scene_functionVis <- scene3d()
@@ -228,19 +296,18 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   ##### Back dimensions ui ----
   output$back_dimensions_ui <- renderUI({
     .dat <- dat_dmvn()
-    .bd_col_nums <- bd_col_nums()
-    .dat_bd <- .dat[, .bd_col_nums]
-    .bd_nms <- colnames(.dat_bd)
-    
+    .p   <- ncol(.dat)
+    .dat_bd <- dat_bd()
+    .bd_col_nms <- colnames(.dat_bd)
     ## Make relative thickness numeric inputs for the back dimensions
     i_s <- 1:ncol(.dat_bd)
-    .def_rel_size <- round(input$tgt_rel_h^(1 / (p - d)), 2)
+    .def_rel_size <- round(input$tgt_rel_h^(1 / (.p - d)), 2)
     bd_slice_rel_sizes <- lapply(i_s, function(i) {
       numericInput(inputId = paste0("bd_slice_rel_size_", i), 
                    label = "rel slice size [h/r_max]",
                    min = 0, max = 1, value = .def_rel_size, step = .05)
     })
-    
+    if (sum(i_s %in% 0) >=1) browser()
     ## Make midpoint sliders inputs for the back dimensions
     bd_slice_midpts <- lapply(i_s, function(i) {
       .dim <- .dat_bd[, i]
@@ -249,7 +316,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       .median <- median(.dim)
       .step <- round((.max - .min) / 10, 1)
       sliderInput(inputId = paste0("bd_slice_midpt_", i), 
-                  label = paste(.bd_nms[i], "slice midpoint"),
+                  label = paste(.bd_col_nms[i], "slice midpoint"),
                   min = .min, max = .max, value = .median, 
                   step = .step, round = -1)
     })
@@ -267,7 +334,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   #   ## Make histograms of the back dimensions, highlighting their slices
   #   bd_histograms <- lapply(i_s, function(i) {
   #     .dim       <- .dat_bd[, i]
-  #     .dim_nm    <- .bd_nms[i] 
+  #     .dim_nm    <- .bd_col_nms[i] 
   #     .range     <- abs(max(.dim) - min(.dim))
   #     .midpt     <- median(.dim)
   #     # input[[paste0("bd_slice_midpt_", i)]]
@@ -275,7 +342,6 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   #     # input[[paste0("bd_slice_rel_size_", i)]] * .range
   #     .lb        <- .midpt - .rel_size / 2
   #     .ub        <- .midpt + .rel_size / 2
-  #     # browser()
   #     #output[[paste0("bd_histogram_", i)]] <- 
   #     renderPlot({
   #       app_hist(.dim, .dim_nm, .lb, .ub)

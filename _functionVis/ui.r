@@ -20,11 +20,14 @@ w <- h <- "640px" ## height and width of the rgl widget in pixels, as applied in
 functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'", fluidPage(
   sidebarPanel(
     width = 3,
+    selectInput("dat", label = "Data",
+                choices = c("grid cube", "simulation", "flea", "wine")),
     fluidRow(
       column(width = 6,
              shinyWidgets::switchInput(inputId = "DO_DISP_a_hull_triang", 
                                        label = "Display alpha hull triangles", 
-                                       value = TRUE)),
+                                       value = TRUE)
+             ),
       column(width = 6,
              conditionalPanel(
                "input.DO_DISP_a_hull_triang == true",
@@ -62,7 +65,6 @@ STALE_functionSurfaces_panel <- tabPanel("functionSurfaces_fromPoC", fluidPage(
 ##### ui -----
 ## Bring the panels together for full UI
 ui <- fluidPage(
-  h2("Nicholas Spyrison, 2020/05/29"),
   navbarPage("functionVis",
              functionSurfaces_panel,
              STALE_functionSurfaces_panel

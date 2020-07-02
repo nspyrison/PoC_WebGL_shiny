@@ -35,7 +35,8 @@ p <- ncol(x)
 
 vc_mat <-  diag(p) * var_x
 lt_idx <- lower.tri(vc_mat)
-.norm <- rnorm(n = p, mean = 0, sd = 1) ## rnorm sample off diag cov matrix values
+.norm <- rnorm(n = sum(1:(p - 1)) / 2, mean = 0, sd = 1) ## rnorm sample off diag cov matrix values
+#matrix(1:9, nrow=3)[lt_idx] ## Review positions of off diag elements
 vc_mat[lt_idx] <- vc_mat[t(lt_idx)] <- .norm ## assign symetric vales to lower and uper triandgles
 vc_mat <- lqmm::make.positive.definite(vc_mat)
 #cov(x) #default var-cov matrix
