@@ -13,7 +13,7 @@ require("lqmm")
 require("mvtnorm")
 require("dplyr")
 require("tidyr")
-require("rlang")
+require("ggpubr")
 
 w <- h <- "640px" ## height and width of the rgl widget in pixels, as applied in UI *Output() function.
 
@@ -47,8 +47,12 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
     )
   )), ### Close sidebarPanel()
   mainPanel(
-    rglwidgetOutput("widget_functionVis", w, h)
+    fluidRow(
+      column(width = 2, plotOutput("bd_histograms")),
+      column(width = 10, rglwidgetOutput("widget_functionVis", w, h))
+    )
   )
+  
 )) ### Close tabPanel(), assigning functionSurfaces_panel
 
 

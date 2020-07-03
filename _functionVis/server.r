@@ -19,7 +19,7 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
 {
   ## Some aesthetics setup:
   rad_pts        <- .02 ## radius of data points spheres
-  alpha_bbox     <- .6  ## alpha opacity for boundingbox and axes lines
+  alpha_bbox     <- .9  ## alpha opacity for boundingbox and axes lines
   alpha_a_hull   <- .2  ## alpha opacity for triangles of the exterior alpha hull
   col_bg         <- "lightgrey" # "grey80" ## color for the back ground & "emission" arg
   col_bbox       <- "black"     # "grey20" ## color for the bounding box (widget cell)
@@ -62,46 +62,6 @@ app_hist <- function(gg_df, df_lb_ub){
     theme(axis.title.x = element_text()) + 
     labs(x = var_nm) +
     coord_fixed(ratio =  .2 * .x_range / .y_range) ## Ratio of y/x
-}
-
-app_hist_grid <- function(df_bd, var_nm, lb, ub){
-  ##TODO: Might need to pivot_longer the df, and need lb, ub; functions of input
-  df_bd<-mtcars
-  
-  var_nms <- colnames(df_bd)
-  .call <- NULL
-  for(i in 1:ncol(df_bd)){
-    x <- df_bd[, i]
-    var_nm <- var_nms[i]
-    .med <- median(x)
-    .bins <- nclass.FD(x) ## bins on Freedman-Diaconis, func(n, IQR).
-    .den <-  density(x)
-    .y_q1 <- 3 * summary(.den$y)[2] ## First quartile of the density of the variable
-    .y_range <- diff(range(.den$y))
-    .x_range <- diff(range(x))
-    
-    x <- as.data.frame(x)
-    colnames(x) <- var_nm
-    gg <- 
-      ggplot(x, aes_string(x = var_nm)) +
-      geom_histogram(aes(y = ..density..), bins = .bins, colour = "black", fill = "grey") +
-      #geom_density(alpha = .3, fill = "red") +
-      geom_vline(aes(xintercept = .med),
-                 color = "blue", linetype = "dashed", size = 1) + 
-      geom_rect(aes(ymin = -.y_q1, ymax = .y_q1, xmin = lb, xmax = ub),
-                fill = "blue", alpha = .01) +
-      theme_void() + 
-      theme(axis.title.x = element_text()) + 
-      labs(x = var_nm) +
-      coord_fixed(ratio =  .2 * .x_range / .y_range) ## Ratio of y/x
-    
-    assign(paste0("gg", i), gg)
-    
-    .call_char <- paste0(.call, "gg", i)
-    if (i != ncol(df_bd)) .call_char <- paste0(.call, ", ")
-  }
-  
-  grid.arrange(eval(parse(.call_char)), ncol = 1)
 }
 
 app_simulate_clusters <- function() {
@@ -220,9 +180,9 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     IS_in_all_bc_slices <- T    ## Logical vector of rows in ALL back dimenion slices.
     for(i in i_s){
       .dim         <- .dat_bd[, i]
-      .bd_slice    <- input[[paste0("bd_slice_", i)]]
-      .lb          <- min(.bd_slice)
-      .ub          <- max(.bd_slice)
+      .slice       <- input[[paste0("bd_slice_", i)]]
+      .lb          <- min(.slice)
+      .ub          <- max(.slice)
       .IS_in_slice <- .dim >= .lb & .dim <= .ub ## Logical vector of rows within this .dim's slice.
       IS_in_bd_slice_mat  <- cbind(IS_in_bd_slice_mat, .IS_in_slice)
       IS_in_all_bc_slices <- IS_in_all_bc_slices & .IS_in_slice
@@ -351,32 +311,72 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   }) ## Assign output$back_dimensions_ui, closing RenderUI()
   
   bd_histograms <- reactive({
-    # .dat <- dat_dmvn()
-    # .p   <- ncol(.dat)
+    req(input$bd_slice_1)
     .dat_bd <- dat_bd()
-    # .bd_col_nms <- colnames(.dat_bd)
-    .def_rel_size <- round(input$tgt_rel_h^(1 / (.p - d)), 2)
-    # 
-    ## Make slider numeric inputs for the back dimension slice
-    i_s <- 1:ncol(.dat_bd)
-    ## Make histograms of the back dimensions, highlighting their slices
-    bd_histograms <- lapply(i_s, function(i) {
-      .dim       <- .dat_bd[, i]
-      .dim_nm    <- .bd_col_nms[i]
-      .range     <- abs(max(.dim) - min(.dim))
-      .midpt     <- median(.dim)
-      # input[[paste0("bd_slice_midpt_", i)]]
-      .rel_size  <- .def_rel_size
-      # input[[paste0("bd_slice_rel_size_", i)]] * .range
-      .lb        <- .midpt - .rel_size / 2
-      .ub        <- .midpt + .rel_size / 2
-      #output[[paste0("bd_histogram_", i)]] <-
-      renderPlot({
-        app_hist(.dim, .dim_nm, .lb, .ub)
-      }, height = 50) ## integer of pixels
-      # output[[paste0("bd_histogram_", i)]]
-    })
+    .bd_col_nms <- colnames(.dat_bd)
+    .i_s <- 1:ncol(.dat_bd)
+    
+    ## Make a dim table; 1 row for each bd to be used in setting ggplot aes.
+    .df_bd_dim <- NULL
+    for (i in .i_s) {
+      .dim     <- .dat_bd[, i]
+      .den     <- density(.dim)
+      .slice   <- input[[paste0("bd_slice_", i)]]
+      
+      variable_nm     <- .bd_col_nms[i]
+      med             <- median(.dim)
+      n_bins          <- nclass.FD(.dim) ## bins on Freedman-Diaconis, func(n, IQR).
+      rect_half_hight <- as.numeric(.5 * summary(.den$y)[2]) ## First quartile of the density of the variable
+      x_range         <- diff(range(.dim))
+      y_range         <- diff(range(.den$y))
+      asp_ratio       <- .4 * y_range / x_range
+      lb              <- min(.slice)
+      ub              <- max(.slice)
+      
+      .bd_dim     <- data.frame(cbind(variable_nm, med, n_bins, rect_half_hight, 
+                                      x_range, y_range, asp_ratio, lb, ub))
+      .df_bd_dim  <- rbind(.df_bd_dim, .bd_dim)
+    }
+    
+    ## Fact table, pivot_longer() the back dimensions for faceting
+    df_bd_long <- tidyr::pivot_longer(.dat_bd, cols = 1:ncol(.dat_bd),
+                                      names_to = "variable_nm", values_to = "value")
+    ## Join, making a dimfact table to make ggplot2 histograms
+    df_bd_long_dimfact <- dplyr::left_join(df_bd_long, .df_bd_dim, 
+                                           by = "variable_nm", copy = TRUE)
+    
+    ## Single column of stylized histograms of each backdimension
+    bd_hists <- ggplot(df_bd_long, aes(x = value)) +
+      geom_histogram(aes(y = ..density..), bins = n_bins, colour = "black", fill = "grey") +
+      geom_density(alpha = .3, fill = "red") +
+      geom_vline(aes(xintercept = med),
+                 color = "blue", linetype = "dashed", size = 1) + 
+      geom_rect(aes(ymin = -rect_half_hight, ymax = rect_half_hight,
+                    xmin = lb, xmax = ub), fill = "blue", alpha = .01) +
+      facet_wrap(~ variable_nm, ncol = 1) +
+      theme_void() +
+    
+      xlim(0, x_range) + ylim(0, y_range)
+      
+      # coord_fixed(ratio = asp_ratio) ## Ratio of y / x
+      # coord_cartesian(xlim = c(0, x_range), ylim = c(0, y_range))
+      
+      # theme(axis.title.x = element_text()) +
+      # labs(x = variable_nm) +
+    gg_blank <- ggplot() + theme_void()
+    
+    ## Display in order with white space at the top to allign with sliders.
+    # bd_histograms <- ggpubr::ggarrange(gg_blank, bd_hists, ncol = 1, heights = c(.5, rep(1, 4)))
+    # bd_histograms
+    
+    bd_histograms <- cowplot::plot_grid(
+      gg_blank, bd_hists,
+      labels = c(NA, .bd_col_nms), ncol = 1
+    )
+    
+    bd_histograms
   })
+  output$bd_histograms <- renderPlot(bd_histograms())
   
 }) ## Assign server function to be used in shinyApp()
 
