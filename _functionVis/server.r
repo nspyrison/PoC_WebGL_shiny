@@ -21,6 +21,7 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
   rad_pts        <- .02 ## radius of data points spheres
   alpha_bbox     <- .9  ## alpha opacity for boundingbox and axes lines
   alpha_a_hull   <- .2  ## alpha opacity for triangles of the exterior alpha hull
+  alpha_red_bslice_agg <- 2 * alpha_a_hull ## alpha opacity for red lines indicating aggragating the bslice
   col_bg         <- "lightgrey" # "grey80" ## color for the back ground & "emission" arg
   col_bbox       <- "black"     # "grey20" ## color for the bounding box (widget cell)
   pal_surfaces   <- c("blue", "red", "cyan", "purple") # RColorBrewer::brewer.pal(n = 4, "Paired") 
@@ -197,11 +198,19 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     
     ## Agggregate the function values within bd slices
     .df <- dat_star
+    req(input$bslice_agg)
+    agg_func <- ## case when doesn't want to return functions; closure not subsettable.
+      if(       input$bslice_agg == "max")    {max
+      } else if(input$bslice_agg == "mean")   {mean
+      } else if(input$bslice_agg == "median") {median
+      } else if(input$bslice_agg == "min")    {min}
+
+    
     colnames(.df) <- c("x1", "x2", "func", "rownum")
     .grp_tib <- dplyr::group_by(.df, x1, x2)
     .agg_tib <- dplyr::summarise(
       .data = .grp_tib, .groups = "drop", 
-      func_mean = mean(func), func_min = min(func), func_max = max(func), 
+      z_agg = agg_func(func), z_min = min(func), z_max = max(func), 
       rownum = first(rownum))
     
     ## Return df of aggregated dat_star ; rows in all bd slices, columns: x1:x2, y_mn, y_min, y_man
@@ -212,7 +221,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   #### Contains list elements for each of the shapes: (tetra, triang, edge, vertex, x),
   #### Delaunay triangulations maximizes the smallest angle of the triangles to avoid sliver triangles.
   full_ashape <- reactive({
-    .dat_star_3mat  <- as.matrix(dat_star()[c("x1", "x2", "func_mean")])
+    .dat_star_3mat  <- as.matrix(dat_star()[c("x1", "x2", "z_agg")])
     ## Possible alpha values for the input$a_hull_radius
     .a_hull_alpha_seq <- 1 / seq(.5, 10, by = .5) 
     ## ashape3d obj of all alphas and all shapes (tetra, triang, edge, vertex, x)
@@ -233,7 +242,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     #### Values can be: 0 (not on a_hull) 1 (interitor triang), 2 (regular), 3 (singular)
     ## Triangles to display; only those on the exterior of the alpha hull.
     .xyz_rows_ext_triang <- t(.ashape_triang[.rows_ext_triang, 1:3])
-    ## df of X[r, 6], rows within all bd slices, columns: x1, x2, rownum, func_mean, func_min, func_max
+    ## df of X[r, 6], rows within all bd slices, columns: x1, x2, rownum, z_agg, z_min, z_max
     .dat_star <- dat_star()
     
     ## Aesthetic init
@@ -242,7 +251,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     .dat_bd_col_nms <- colnames(dat_bd())
     .disp_col_nms   <- .dat_col_nms[!(.dat_col_nms %in% .dat_bd_col_nms)]
     .labs <- paste0(c("x, ", "y, ", "z, "), .disp_col_nms)
-    if(all.equal(.dat_star$func_min, .dat_star$func_max) == FALSE)
+    if(all.equal(.dat_star$z_min, .dat_star$z_max) == FALSE)
       .labs[3] <- paste0("z, mean of ", .disp_col_nms(3))
     .pt_col <- pt_color()[.dat_star$rownum]
     .full_disp_cols <- as.data.frame(dat_dmvn())[.disp_col_nms] ## get full disp cols for setting aspect ratio
@@ -257,23 +266,22 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     aspect3d(.x_asp, .y_asp, .z_asp)
     bbox3d(xlen = num_bbox_ticks, ylen = num_bbox_ticks, zlen = num_bbox_ticks,
            color = col_bbox , alpha = alpha_bbox, emission = col_bg, lwd = 1)
-
     
     ### Data point Spheres
-    spheres3d(x = .dat_star$x1, y = .dat_star$x2, z = .dat_star$func_mean,
+    spheres3d(x = .dat_star$x1, y = .dat_star$x2, z = .dat_star$z_agg,
               radius = rad_pts, col = .pt_col)
     ### Add red aggregation lines if needed
-    if(sum(.dat_star$func_min == .dat_star$func_max) != nrow(.dat_star)) {
-      segments3d(color = "red", alpha = alpha_a_hull,
+    if(sum(.dat_star$z_min == .dat_star$z_max) != nrow(.dat_star)) {
+      segments3d(color = "red", alpha = alpha_red_bslice_agg,
                  rep(.dat_star$x1, each = 2), 
                  rep(.dat_star$x2, each = 2), 
-                 c(rbind(.dat_star$func_min, .dat_star$func_max)))
+                 c(rbind(.dat_star$z_min, .dat_star$z_max)))
     }
     ### a_hull triangs
     if (input$DO_DISP_a_hull_triang) {
       triangles3d(.dat_star[.xyz_rows_ext_triang, "x1"],
                   .dat_star[.xyz_rows_ext_triang, "x2"],
-                  .dat_star[.xyz_rows_ext_triang, "func_mean"],
+                  .dat_star[.xyz_rows_ext_triang, "z_agg"],
                   col = pal_surfaces[1], alpha = alpha_a_hull)
     }
     
@@ -312,66 +320,71 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   
   bd_histograms <- reactive({
     req(input$bd_slice_1)
-    .dat_bd <- dat_bd()
-    .bd_col_nms <- colnames(.dat_bd)
-    .i_s <- 1:ncol(.dat_bd)
+    dat_bd <- dat_bd()
+    bd_col_nms <- colnames(dat_bd)
+    i_s <- 1:ncol(dat_bd)
     
     ## Make a dim table; 1 row for each bd to be used in setting ggplot aes.
-    .df_bd_dim <- NULL
-    for (i in .i_s) {
-      .dim     <- .dat_bd[, i]
-      .den     <- density(.dim)
-      .slice   <- input[[paste0("bd_slice_", i)]]
+    df_bd_dim <- NULL
+    for (i in i_s) {
+      dim   <- dat_bd[, i]
+      den   <- density(dim)
+      slice <- input[[paste0("bd_slice_", i)]]
       
-      variable_nm     <- .bd_col_nms[i]
-      med             <- median(.dim)
-      n_bins          <- nclass.FD(.dim) ## bins on Freedman-Diaconis, func(n, IQR).
-      rect_half_hight <- as.numeric(.5 * summary(.den$y)[2]) ## First quartile of the density of the variable
-      x_range         <- diff(range(.dim))
-      y_range         <- diff(range(.den$y))
-      asp_ratio       <- .4 * y_range / x_range
-      lb              <- min(.slice)
-      ub              <- max(.slice)
+      var_nm <- as.factor(bd_col_nms[i])
+      med    <- median(dim)
+      n_bins <- nclass.FD(dim) ## bins on Freedman-Diaconis, func(n, IQR).
+      x_min  <- min(den$x)
+      x_max  <- max(den$x)
+      y_min  <- min(den$y)
+      y_max  <- max(den$y)
+      asp_r  <- .4 * (y_max - y_min) / (x_max - x_min)
+      lb     <- min(slice)
+      ub     <- max(slice)
       
-      .bd_dim     <- data.frame(cbind(variable_nm, med, n_bins, rect_half_hight, 
-                                      x_range, y_range, asp_ratio, lb, ub))
-      .df_bd_dim  <- rbind(.df_bd_dim, .bd_dim)
+      this_bd_dim <- data.frame(var_nm = var_nm,
+                                med    = med,
+                                n_bins = n_bins, ## bins on Freedman-Diaconis, func(n, IQR).
+                                x_min  = x_min,
+                                x_max  = x_max,
+                                y_min  = y_min,
+                                y_max  = y_max,
+                                asp_r  = asp_r, ## Ratio of y / x
+                                lb     = lb,
+                                ub     = ub)
+      df_bd_dim <- rbind(df_bd_dim, this_bd_dim)
     }
     
     ## Fact table, pivot_longer() the back dimensions for faceting
-    df_bd_long <- tidyr::pivot_longer(.dat_bd, cols = 1:ncol(.dat_bd),
-                                      names_to = "variable_nm", values_to = "value")
-    ## Join, making a dimfact table to make ggplot2 histograms
-    df_bd_long_dimfact <- dplyr::left_join(df_bd_long, .df_bd_dim, 
-                                           by = "variable_nm", copy = TRUE)
+    df_bd_long <- tidyr::pivot_longer(dat_bd, cols = 1:ncol(dat_bd),
+                                      names_to = "var_nm", values_to = "value")
+    # ## Join, making a dimfact table to make ggplot2 histograms
+    # df_bd_long_dimfact <- dplyr::left_join(df_bd_long, df_bd_dim, 
+    #                                        by = "var_nm", copy = TRUE)
     
     ## Single column of stylized histograms of each backdimension
-    bd_hists <- ggplot(df_bd_long, aes(x = value)) +
-      geom_histogram(aes(y = ..density..), bins = n_bins, colour = "black", fill = "grey") +
-      geom_density(alpha = .3, fill = "red") +
+    bd_hists <- ggplot(data = df_bd_long, aes(x = value)) +
+      #geom_histogram(aes(y = ..density..), bins = n_bins, colour = "black", fill = "grey") +
+      geom_rect(aes(ymin = y_min, ymax = y_max, xmin = lb, xmax = ub), 
+                fill = "lightblue", alpha = .05) +
       geom_vline(aes(xintercept = med),
-                 color = "blue", linetype = "dashed", size = 1) + 
-      geom_rect(aes(ymin = -rect_half_hight, ymax = rect_half_hight,
-                    xmin = lb, xmax = ub), fill = "blue", alpha = .01) +
-      facet_wrap(~ variable_nm, ncol = 1) +
+                 color = "blue", linetype = "dashed", size = 1) +
+      geom_vline(aes(xintercept = lb), color = "blue", size = 1) +
+      geom_vline(aes(xintercept = ub), color = "blue", size = 1) +
+      geom_rug(size = 1) +
+      geom_density(alpha = .3, fill = "red") +
+      # labs(x = var_nm) +
+      facet_wrap(~ var_nm, ncol = 1) +
       theme_void() +
+      coord_cartesian(xlim = c(x_min, x_max), ylim = c(y_min, y_max)) #+
+      #coord_fixed(ratio = vars(asp_r)) 
     
-      xlim(0, x_range) + ylim(0, y_range)
-      
-      # coord_fixed(ratio = asp_ratio) ## Ratio of y / x
-      # coord_cartesian(xlim = c(0, x_range), ylim = c(0, y_range))
-      
-      # theme(axis.title.x = element_text()) +
-      # labs(x = variable_nm) +
     gg_blank <- ggplot() + theme_void()
     
     ## Display in order with white space at the top to allign with sliders.
-    # bd_histograms <- ggpubr::ggarrange(gg_blank, bd_hists, ncol = 1, heights = c(.5, rep(1, 4)))
-    # bd_histograms
-    
     bd_histograms <- cowplot::plot_grid(
-      gg_blank, bd_hists,
-      labels = c(NA, .bd_col_nms), ncol = 1
+      gg_blank, bd_hists, ncol = 1
+      #labels = c(NA, bd_col_nms), ncol = 1
     )
     
     bd_histograms

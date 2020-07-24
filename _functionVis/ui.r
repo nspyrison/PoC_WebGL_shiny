@@ -5,7 +5,7 @@ require("shinyWidgets")
 require("tourr")
 require("spinifex") ## v0.2.9000 and up
 require("rgl")
-library("alphashape3d")
+require("alphashape3d")
 require("RColorBrewer")
 require("ggplot2")
 require("gridExtra")
@@ -15,7 +15,8 @@ require("dplyr")
 require("tidyr")
 require("ggpubr")
 
-w <- h <- "640px" ## height and width of the rgl widget in pixels, as applied in UI *Output() function.
+w <- h <- "800px" ## height and width of the rgl widget in pixels, as applied in UI *Output() function.
+def_rel_h <- .25 ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
 
 ##### Start of shiny ui ----
 ### Following: 
@@ -27,10 +28,10 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
   sidebarPanel(width = 3, fluidRow(
     selectInput("dat", label = "Data",
                 choices = c("grid cube", "simulation", "flea", "wine")),
-    numericInput("tgt_rel_h", 
-                 "Target fraction of backdimension volume (slice widths adjust to x^(1/p-d))",
-                 value = .25, ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
-                 min = .05, max = 1, step = .05),
+    selectInput("bslice_agg", "Back slice aggregation",
+                choices =  c("max", "mean", "median", "min")),
+    numericInput("tgt_rel_h", "Target fraction of backdimension volume (slice widths adjust to x^(1/p-d))",
+                 value = def_rel_h, min = .05, max = 1, step = .05),
     uiOutput("back_dimensions_ui"),
     column(width = 6,
            shinyWidgets::switchInput(inputId = "DO_DISP_a_hull_triang", 
@@ -41,19 +42,20 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
            conditionalPanel(
              "input.DO_DISP_a_hull_triang == true",
              numericInput("a_hull_radius", label = "Alpha hull radius [1/alpha]", 
-                          value = 5, min = .5, max = 10, step = .5),
+                          value = round(1 / def_rel_h, ## round to nearest .5
+                                        1 / def_rel_h / .5) * .5), 
+                          min = .5, max = 10, step = .5),
              verbatimTextOutput("a_hull_alpha")
            )
     )
-  )), ### Close sidebarPanel()
+  ), ## Close sidebarPanel()
   mainPanel(
     fluidRow(
       column(width = 2, plotOutput("bd_histograms")),
       column(width = 10, rglwidgetOutput("widget_functionVis", w, h))
     )
-  )
-  
-)) ### Close tabPanel(), assigning functionSurfaces_panel
+  ) ## Close mainPanel()
+)) ## Close tabPanel(), assigning functionSurfaces_panel
 
 
 
