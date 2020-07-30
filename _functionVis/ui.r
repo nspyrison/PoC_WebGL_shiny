@@ -26,10 +26,16 @@ def_rel_h <- .25 ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
 
 functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'", fluidPage(
   sidebarPanel(width = 3, fluidRow(
-    selectInput("dat", label = "Data",
-                choices = c("grid cube", "simulation", "flea", "wine")),
-    selectInput("bslice_agg", "Back slice aggregation",
-                choices =  c("max", "mean", "median", "min")),
+    selectInput("dat", label = "Data", choices = c("grid cube", "simulation")),
+    conditionalPanel(
+      "input.dat == 'simulation'",
+      textInput('sim_mns_a', 'Enter a variable means for cluster a (comma delimited)', "0,8,0,0"),
+      textInput('sim_mns_b', 'Enter a variable means for cluster b (comma delimited)', "8,0,0,0"),
+      p("Covariance matrices fixed to identity(p).")
+    ),
+    p("Back slice is aggregating to the max of all points, with red bar extending to the minimum."),
+    # selectInput("bslice_agg", "Back slice aggregation",
+    #             choices =  c("max", "mean", "median", "min")),
     numericInput("tgt_rel_h", "Target fraction of backdimension volume (slice widths adjust to x^(1/p-d))",
                  value = def_rel_h, min = .05, max = 1, step = .05),
     uiOutput("back_dimensions_ui"),
@@ -41,14 +47,14 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
     column(width = 6,
            conditionalPanel(
              "input.DO_DISP_a_hull_triang == true",
-             numericInput("a_hull_radius", label = "Alpha hull radius [1/alpha]", 
-                          value = round(1 / def_rel_h, ## round to nearest .5
-                                        1 / def_rel_h / .5) * .5), 
-                          min = .5, max = 10, step = .5),
-             verbatimTextOutput("a_hull_alpha")
+             numericInput("a_hull_alpha", label = "Alpha (~1/alpha hull",
+                          value = 1, #round(def_rel_h, 1),
+                          min = .1, max = 8, step = .1),
+             #verbatimTextOutput("a_hull_alpha"),
+             verbatimTextOutput("a_hull_radius")
            )
     )
-  ), ## Close sidebarPanel()
+  )), ## Close sidebarPanel()
   mainPanel(
     fluidRow(
       column(width = 2, plotOutput("bd_histograms")),
