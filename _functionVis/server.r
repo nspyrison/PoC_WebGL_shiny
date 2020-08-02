@@ -108,10 +108,12 @@ server <- shinyServer(function(input, output, session) { ## Session required.
                           n_points = rep(list(500), length(mns)),
                           method = "eigen",
                           do_shuffle = FALSE)
-      ## Discretize to grid; will be rescaled to [0,1] later
-      grain <- .25
-      sim <- apply(sim, 2, function(x) round(x / grain, 1) * grain)
-      return(sim)
+      ## rescale to [0,1]
+      sim_std <- tourr::rescale(sim)
+      ## Discretize to grid
+      sim_std_disc <- apply(sim_std, 2, function(x) round(x, 1))
+      
+      return(sim_std_disc)
     }
   })
   
@@ -130,19 +132,30 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     col_of(fst_class)
   })
   
-  dat_dmvn <- reactive({
+  dat_func <- reactive({
     dat_raw <- dat_raw()
     IS_numeric_col <- apply(dat_raw, 2, function(x) all(is.numeric(x)))
     dat_num <- dat_raw[, IS_numeric_col]
-    dat_mn  <- colMeans(dat_num)
-    dat_cov <- cov(dat_num)
-    dmvn <- mvtnorm::dmvnorm(dat_num, mean = dat_mn, sigma = dat_cov)
-    dat_dmvn <- cbind(dat_num, dmvn)
-    ret <- tourr::rescale(dat_dmvn) ## Rescale is crutial for a hull to work correctly and disp aes.
+    if (input$numFunc == "kde2d"){
+      ## TODO; NEED TO GO TO MORE GENERALIZED KERNAL DENSITY????
+      # rgl::ellipse3d(cov(z[, 1:3]), level = 0.68,
+      #           centre = apply(z, 2, mean))
+      den2d <- MASS::kde2d(dat_num[,1], dat_num[,2], n = 10)
+      den2d_cross_join <- merge(den2d$x, den2d$y, all = TRUE)
+      dat_func <- data.frame(den2d_cross_join, z_agg = as.vector(den2d$z))
+    }
+    if (input$numFunc == "dmvnorm"){
+      col_mns  <- colMeans(dat_num)
+      dat_cov <- cov(dat_num)
+      dmvn <- mvtnorm::dmvnorm(dat_num, mean = col_mns, sigma = dat_cov)
+      dat_func <- cbind(dat_num, dmvn)
+    }
+    ## Rescale is crutial for a hull to work disp aspect ratio.
+    ret <- tourr::rescale(dat_func) 
     as.data.frame(ret)
   })
   bd_col_nms <- reactive({
-    dat <- dat_dmvn()
+    dat <- dat_func()
     p <- ncol(dat)
     x_num <- 1 ## Could change to input or hold one out style
     y_num <- 2 ## Could change to input or hold one out style
@@ -150,7 +163,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     colnames(dat)[-c(x_num, y_num, z_num)] ## Column numbers of dim not displayed
   })
   fd_col_nms <- reactive({
-    dat <- dat_dmvn()
+    dat <- dat_func()
     p <- ncol(dat)
     x_num <- 1 ## Could change to input or hold one out style
     y_num <- 2 ## Could change to input or hold one out style
@@ -158,20 +171,28 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     colnames(dat)[c(x_num, y_num, z_num)] ## Column numbers of dim not displayed
   })
   dat_bd <- reactive({
-    dat_dmvn()[bd_col_nms()]
+    dat_func()[bd_col_nms()]
   })
   dat_fd <- reactive({
-    dat_dmvn()[fd_col_nms()]
+    dat_func()[fd_col_nms()]
   })
   
   dat_star <- reactive({
-    req(input$bd_slice_1)
     ## Data frame of full sample the back dimension data
-    dat_bd <- dat_bd()
+    dat_bd     <- dat_bd()
+    ncol_bd    <- ncol(dat_bd)
+    dat        <- dat_func()
+    dat$rownum <- 1:nrow(dat)
+    if (ncol_bd == 0) {
+      colnames(dat) <- c("x1", "x2", "z_agg", "rownum")
+      dat_star <- tourr::rescale(dat)
+      return(dat_star)
+    }
+    req(input$bd_slice_1)
     ## Sub set to only the rows within ALL back dimension slices
     IS_in_bd_slice_mat  <- NULL ## Logical matrix of rows in each back dimenion slice
     IS_in_all_bd_slices <- T    ## Logical vector of rows in ALL back dimenion slices
-    for(i in 1:ncol(dat_bd)){
+    for(i in 1:ncol_bd){
       dim         <- dat_bd[, i]
       slice       <- input[[paste0("bd_slice_", i)]]
       lb          <- min(slice)
@@ -182,8 +203,6 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     }
     if (sum(IS_in_all_bd_slices) == 0) stop("Currect slices of the back dimensions contain no observations.")
     
-    dat         <- as.data.frame(dat_dmvn())
-    dat$rownum  <- 1:nrow(dat)
     IS_disp_col <- !(colnames(dat) %in% colnames(dat_bd))
     ## A df subset (with all bd slice), of the front (display) dimensions
     dat_star    <- dat[IS_in_all_bd_slices, IS_disp_col]
@@ -197,16 +216,16 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       # } else if(input$bslice_agg == "min")    {min}
     
     colnames(dat_star) <- c("x1", "x2", "func", "rownum")
-    agg_df <- dplyr::group_by(dat_star, x1, x2) %>%
+    dat_star <- dplyr::group_by(dat_star, x1, x2) %>%
       dplyr::summarise(.groups = "drop", 
                        z_agg = agg_func(func), 
                        z_min = min(func), 
                        z_max = max(func), 
                        rownum = first(rownum)) %>% 
-      as.data.frame()
-    
+      as.data.frame() %>% 
+      tourr::rescale()
     ## Return df of aggregated dat_star; rows in all bd slices, columns: x1:x2, y_mn, y_min, y_man
-    agg_df
+    dat_star
   })
   
   ## Creates a list of 3D Delaunay triangulation matrices, as a function of alpha(s).
@@ -225,7 +244,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     req(dat_star())
     ##### Init a_hull triangles via alphashape3d::ashape3d()
     ## Grab only the triangles from the 3D Delaunay triangulation
-    ashape_triang   <- suppressWarnings(full_ashape()$triang) ## Suppresses: "Warning: Duplicate points were removed."
+    ashape_triang  <- suppressWarnings(full_ashape()$triang) ## Suppresses: "Warning: Duplicate points were removed."
     ## Column name specifying the current alpha value:
     alpha_col_nm    <- paste0("fc:", a_hull_alpha())
     alpha_col_num   <- which(colnames(ashape_triang) == alpha_col_nm)
@@ -238,13 +257,14 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     
     ## Aesthetic init
     dat_star   <- dat_star()
+    
     bd_col_nms <- bd_col_nms()
     fd_col_nms <- fd_col_nms()
     labs <- paste0(c("x, ", "y, ", "z, "), fd_col_nms)
     if(all.equal(dat_star$z_min, dat_star$z_max) == FALSE)
       labs[3] <- paste0("z, mean of ", fd_col_nms(3))
     pt_col <- pt_color()[dat_star$rownum]
-    disp_df <- dat_dmvn()[fd_col_nms] ## Full disp cols for setting aspect ratio
+    disp_df <- dat_func()[fd_col_nms] ## Full disp cols for setting aspect ratio
     x_asp <- 1 / diff(range(disp_df[, 1]))
     y_asp <- 1 / diff(range(disp_df[, 2]))
     z_asp <- 1 / diff(range(disp_df[, 3]))
@@ -284,7 +304,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   
   ##### Back dimensions ui ----
   output$back_dimensions_ui <- renderUI({
-    dat <- dat_dmvn()
+    dat <- dat_func()
     p   <- ncol(dat)
     dat_bd <- dat_bd()
     bd_col_nms <- colnames(dat_bd)
@@ -293,7 +313,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     
     ## Make slider numeric inputs for the back dimension slice
     ncol_bd <- ncol(dat_bd)
-    if(ncol_bd == 0) stop("dat_bd() not returning columns.")
+    if(ncol_bd == 0) return("There are no back dimensions.")
     i_s <- 1:ncol_bd
     bd_slice_midpts <- lapply(i_s, function(i) {
       med <- median(dat_bd[, i])

@@ -27,10 +27,11 @@ def_rel_h <- .25 ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
 functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'", fluidPage(
   sidebarPanel(width = 3, fluidRow(
     selectInput("dat", label = "Data", choices = c("grid cube", "simulation")),
+    selectInput("numFunc", "Function to apply", choices = c("kde2d", "dmvnorm")),
     conditionalPanel(
       "input.dat == 'simulation'",
-      textInput('sim_mns_a', 'Enter a variable means for cluster a (comma delimited)', "0,8,0,0"),
-      textInput('sim_mns_b', 'Enter a variable means for cluster b (comma delimited)', "8,0,0,0"),
+      textInput('sim_mns_a', 'Variable means for cluster a (comma delimited)', "0,8,0,0"),
+      textInput('sim_mns_b', 'Variable means for cluster b (comma delimited)', "8,0,0,0"),
       p("Covariance matrices fixed to identity(p).")
     ),
     p("Back slice is aggregating to the max of all points, with red bar extending to the minimum."),
