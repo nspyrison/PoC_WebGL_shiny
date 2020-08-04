@@ -4,6 +4,7 @@
 
 ##### Setup -----
 source("./ui.r", local = TRUE)
+source("./R/sim_pDim_kCl_STATIC.r")
 set.seed(20200629)
 options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless devices.
 
@@ -29,6 +30,19 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
   d              <- 3  ## display dimensionality
   # alpha_surfaces <- .6 ## alpha opacity for surfaces and meshes
   # shine          <- 128  ## "Shininess" of some surfaces, in [0, 128] low values (<50) are too reflective
+  
+  ## local spinifex::col_of() to remove dev depandancy
+  col_of <- function (class, pallet_name = "Dark2") {
+    class <- as.factor(class)
+    .l_lvls <- length(levels(class))
+    if (.l_lvls == 0L) 
+      stop("Length of 'class' cannot be zero.")
+    if (.l_lvls > 12L) 
+      stop("'class' has more than the expected max of 12 levels.")
+    pal <- suppressWarnings(RColorBrewer::brewer.pal(.l_lvls, 
+                                                     pallet_name))
+    pal[as.integer(factor(class))]
+  }
 }
 
 app_hist <- function(gg_df, df_lb_ub){
@@ -60,10 +74,9 @@ app_hist <- function(gg_df, df_lb_ub){
 }
 
 
-
-
-####### Shiny server start =====
+####### Shiny server start -----
 server <- shinyServer(function(input, output, session) { ## Session required.
+  ## on.start:
   try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
   save <- options(rgl.inShiny = TRUE)
   on.exit({
@@ -75,7 +88,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     rglwidget(scene_functionSurfaces_STALE)
   )
   
-  ##### functionVis =====
+  ##### functionVis -----
   a_hull_alpha <- reactive(input$a_hull_alpha)
   output$a_hull_alpha <- 
     renderText(paste0("Alpha: ", round(a_hull_alpha(), 2)))
@@ -88,7 +101,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       return(df[, 1:3])
     }
     if (input$dat == "simulation") {
-      ## remove spaces
+      ## Remove spaces
       in_a <- gsub(" ", "", input$sim_mns_a)
       in_b <- gsub(" ", "", input$sim_mns_b)
       ## as.vector, spliting on ","
@@ -102,7 +115,6 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       sigs <- diag(p)
       sigs <- list(sigs, sigs)
       ## Simulate
-      source("../../spinifex_study/R/sim_pDim_kCl.r")
       sim <- sim_pDim_kCl(means = mns, 
                           sigmas = sigs,
                           n_points = rep(list(500), length(mns)),
@@ -117,7 +129,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     }
   })
   
-  ## character vector of the hex colors to use based on first factor or character column
+  ## Character vector of the hex colors to use based on first factor or character column
   pt_color <- reactive({
     dat_raw <- dat_raw()
     dat_raw <- dat_raw[complete.cases(dat_raw), ] ## Row-wise complete
@@ -128,8 +140,8 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     ## If not fct|char columns give dummy color
     if (sum(IS_fct_col) == 0) return(rep(col_of("NO_FCT|CHAR"), nrow(dat_raw))) 
     fst_fct_col_num <- Position(function(x) x == T, IS_fct_col) ## Number of first column that is fct|char
-    fst_class <- dat_raw[, fst_fct_col_num]
-    col_of(fst_class)
+    class <- dat_raw[, fst_fct_col_num]
+    col_of(class)
   })
   
   dat_func <- reactive({
@@ -185,11 +197,13 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     dat$rownum <- 1:nrow(dat)
     if (ncol_bd == 0) {
       colnames(dat) <- c("x1", "x2", "z_agg", "rownum")
-      dat_star <- tourr::rescale(dat)
+      dat_star <- dat %>%
+        tourr::rescale() %>%
+        as.data.frame()
       return(dat_star)
     }
     req(input$bd_slice_1)
-    ## Sub set to only the rows within ALL back dimension slices
+    ## Subset to only the rows within all back dimension slices
     IS_in_bd_slice_mat  <- NULL ## Logical matrix of rows in each back dimenion slice
     IS_in_all_bd_slices <- T    ## Logical vector of rows in ALL back dimenion slices
     for(i in 1:ncol_bd){
@@ -217,13 +231,14 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     
     colnames(dat_star) <- c("x1", "x2", "func", "rownum")
     dat_star <- dplyr::group_by(dat_star, x1, x2) %>%
-      dplyr::summarise(.groups = "drop", 
-                       z_agg = agg_func(func), 
-                       z_min = min(func), 
-                       z_max = max(func), 
-                       rownum = first(rownum)) %>% 
-      as.data.frame() %>% 
-      tourr::rescale()
+      dplyr::summarise(.groups = "drop",
+                       z_agg = agg_func(func),
+                       z_min = min(func),
+                       z_max = max(func),
+                       rownum = first(rownum)) %>%
+      tourr::rescale() %>%
+      as.data.frame()
+      
     ## Return df of aggregated dat_star; rows in all bd slices, columns: x1:x2, y_mn, y_min, y_man
     dat_star
   })
@@ -354,7 +369,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       
       this_bd_stats <- data.frame(var_nm = var_nm,
                                   med    = med,
-                                  n_bins = n_bins, ## bins on Freedman-Diaconis, func(n, IQR).
+                                  n_bins = n_bins, ## Bins on Freedman-Diaconis, a function of (n, IQR).
                                   x_min  = x_min,
                                   x_max  = x_max,
                                   y_min  = y_min,
@@ -381,7 +396,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
                  color = "blue", linetype = "dashed", size = 1) +
       geom_vline(aes(xintercept = lb), color = "blue", size = 1) +
       geom_vline(aes(xintercept = ub), color = "blue", size = 1) +
-      geom_rug(size = 1) +
+      geom_rug(size = 1, position = "dodge") +
       geom_density(alpha = .3, fill = "red") +
       labs(x = var_nm) +
       facet_wrap(~ var_nm, ncol = 1) +
@@ -394,7 +409,6 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     ## Display in order with white space at the top to allign with sliders.
     bd_histograms <- cowplot::plot_grid(
       gg_blank, bd_hists, ncol = 1
-      #labels = c(NA, bd_col_nms), ncol = 1
     )
     
     bd_histograms

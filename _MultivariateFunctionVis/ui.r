@@ -1,24 +1,22 @@
-####### _functionVis/ui.r ----
-#' shiny UI for  server.r
+####### _functionVis/ui.r -----
+#' shiny UI for server.r
 require("shiny")
 require("shinyWidgets")
 require("tourr")
-require("spinifex") ## v0.2.9000 and up
 require("rgl")
 require("alphashape3d")
 require("RColorBrewer")
 require("ggplot2")
-require("gridExtra")
 require("lqmm")
 require("mvtnorm")
 require("dplyr")
 require("tidyr")
-require("ggpubr")
 
 w <- h <- "800px" ## height and width of the rgl widget in pixels, as applied in UI *Output() function.
-def_rel_h <- .25 ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
+def_rel_h <- .25  ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
 
-##### Start of shiny ui ----
+
+##### Start of shiny ui -----
 ### Following: 
 ## https://stackoverflow.com/questions/39363384/how-to-remove-unwanted-text-output-with-shiny-rgl
 # shiny::runApp(system.file("shinyDemo",  package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
@@ -63,7 +61,6 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
     )
   ) ## Close mainPanel()
 )) ## Close tabPanel(), assigning functionSurfaces_panel
-
 
 
 ##### ui -----

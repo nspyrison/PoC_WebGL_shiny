@@ -22,13 +22,72 @@ w <- h <- "600px" ## height and width of the rgl widget in pixels,
 # shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 
 
+##### Global initialize -----
+## Above server scope and not reactive
+## Parameters:
+{
+  ## Some aesthetic parmaters for board use
+  .ptRad <- .02 ## size (radius? diameter?) of data points
+  .shine <- 128 ## "Shininess" of some surfaces, in [0, 128] low values (<50) are too reflective
+  .a_bbox     <- .6 ## alpha for boundingbox and axes lines
+  .a_surface  <- .6 ## alpha for surfaces and meshes
+  .a_a.hull   <- .2 ## alpha for many triangles of the alpha hull
+  .bg    <- "lightgrey" ##"grey100" ## lighter grey Back Ground
+  .bb    <- "darkgrey"  ##"grey40"  ## darker grey  Bounding Box
+  .pal   <- RColorBrewer::brewer.pal(3, "Paired")
+  
+  ## Data, dim, basis, aes 
+  dat   <- tourr::rescale(tourr::flea[, 1:6])
+  n     <- nrow(dat)
+  p     <- ncol(dat)
+  d     <- 3
+  rb    <- tourr::basis_random(p, d)
+  ptCol <- spinifex::col_of(tourr::flea$species)
+  ptPch <- spinifex::pch_of(tourr::flea$species)
+  ptCol_pal <- unique(ptCol)
+  
+  ## Find tour bases and project data
+  rb2holes_tpath <- 
+    save_history(dat,
+                 start = rb,step_size = .6,
+                 tour_path = guided_tour(holes(), d = d, max.tries = 100))
+  n_tpath_bases <- dim(rb2holes_tpath)[3]
+  
+  rb2holes_proj <- array(NA, dim = c(  n, d, n_tpath_bases))
+  for (i in 1:n_tpath_bases){
+    rb2holes_proj[,, i] <- dat %*% matrix(rb2holes_tpath[,, i], nrow = p)
+  }
+  
+  ## Pan tour to be in the "first quadrant"
+  x_min <- min(rb2holes_proj[, 1, ])
+  y_min <- min(rb2holes_proj[, 2, ])
+  z_min <- min(rb2holes_proj[, 3, ])
+  rb2holes_proj[, 1, ] <- rb2holes_proj[, 1, ] - x_min
+  rb2holes_proj[, 2, ] <- rb2holes_proj[, 2, ] - y_min
+  rb2holes_proj[, 3, ] <- rb2holes_proj[, 3, ] - z_min
+  holes_proj <- rb2holes_proj[,, n_tpath_bases] ## Save off final holes() basis
+  
+  ## 2d Kernal density estimate
+  holes_kde2d <- MASS::kde2d(holes_proj[, 1], holes_proj[, 2], n = 60)
+  m <- holes_kde2d
+  str(m)
+  dat <- holes_proj
+  hist(dat[,1])
+  hist(m$x)
+  hist(dat[,2])
+  hist(m$y)
+  mesh <- ellipse3d(cov(dat), level = 0.68,
+                    centre = apply(dat, 2, mean))
+}
+
+
 ##### rb2holes  -----
 ## tourr guided tour from rb to holes
 rb2holes_panel <- tabPanel("rb2holes", fluidPage(
   mainPanel(
     h2("Guided tour from a random basis to holes() @: step_size = .6, d = 3"),
     sliderInput("rb2holes_basis_slider", label = "Basis number", 
-                value = 1, min = 1, max = 1),
+                value = 1, min = 1, max = 100, animate = TRUE),
     textOutput("slider_t"),
     rglwidgetOutput("widget_rb2holes", width = w, height = h)
   )

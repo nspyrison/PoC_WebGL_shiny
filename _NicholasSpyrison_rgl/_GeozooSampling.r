@@ -33,7 +33,7 @@ set.seed(123)
 n <- nrow(x)
 p <- ncol(x)
 
-vc_mat <-  diag(p) * var_x
+vc_mat <-  diag(p) * cox(x)
 lt_idx <- lower.tri(vc_mat)
 .norm <- rnorm(n = p, mean = 0, sd = 1) ## rnorm sample off diag cov matrix values
 vc_mat[lt_idx] <- vc_mat[t(lt_idx)] <- .norm ## assign symetric vales to lower and uper triandgles
