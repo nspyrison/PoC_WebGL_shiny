@@ -23,9 +23,9 @@ def_rel_h <- .25  ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
 # shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
 
 functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'", fluidPage(
-  sidebarPanel(width = 3, fluidRow(
+  sidebarPanel(width = 3L, fluidRow(
     selectInput("dat", label = "Data", choices = c("simulation", "cube")),
-    selectInput("numFunc", "Function to apply", choices = c("kde2d", "dmvnorm")),
+    selectInput("func_nm", "Function to apply", choices = c("kde2d", "dmvnorm")),
     conditionalPanel(
       "input.dat == 'simulation'",
       textInput('sim_mns_a', 'Variable means for cluster a (comma delimited)', "0,8,0,0"),
@@ -36,19 +36,19 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
     # selectInput("bslice_agg", "Back slice aggregation",
     #             choices =  c("max", "mean", "median", "min")),
     numericInput("tgt_rel_h", "Target fraction of backdimension volume (slice widths adjust to x^(1/p-d))",
-                 value = def_rel_h, min = .05, max = 1, step = .05),
+                 value = def_rel_h, min = .05, max = 1L, step = .05),
     uiOutput("back_dimensions_ui"),
-    column(width = 6,
+    column(width = 6L,
            shinyWidgets::switchInput(inputId = "DO_DISP_a_hull_triang", 
                                      label = "Display alpha hull triangles", 
                                      value = TRUE)
     ),
-    column(width = 6,
+    column(width = 6L,
            conditionalPanel(
              "input.DO_DISP_a_hull_triang == true",
              numericInput("a_hull_alpha", label = "Alpha (~1/alpha hull",
-                          value = 10, #round(def_rel_h, 1),
-                          min = 1, max = 20, step = 1),
+                          value = 10L, #round(def_rel_h, 1),
+                          min = 1L, max = 20L, step = 1L),
              #verbatimTextOutput("a_hull_alpha"),
              verbatimTextOutput("a_hull_radius")
            )
@@ -56,8 +56,8 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
   )), ## Close sidebarPanel()
   mainPanel(
     fluidRow(
-      column(width = 2, plotOutput("bd_histograms")),
-      column(width = 10, rglwidgetOutput("widget_functionVis", w, h))
+      column(width = 2L, plotOutput("bd_histograms")),
+      column(width = 10L, rglwidgetOutput("widget_functionVis", w, h))
     )
   ) ## Close mainPanel()
 )) ## Close tabPanel(), assigning functionSurfaces_panel
