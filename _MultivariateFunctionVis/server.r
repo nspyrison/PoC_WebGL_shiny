@@ -31,6 +31,8 @@ options(rgl.useNULL = TRUE) ## Must be executed BEFORE rgl is loaded on headless
   # alpha_surfaces <- .6 ## alpha opacity for surfaces and meshes
   # shine          <- 128  ## "Shininess" of some surfaces, in [0, 128] low values (<50) are too reflective
   
+  load(file = "./data/df_func_surface2.rda") ## Brings df into global environment.
+  
   ## local spinifex::col_of() to remove dev depandancy
   col_of <- function (class, pallet_name = "Dark2") {
     class <- as.factor(class)
@@ -95,10 +97,10 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   output$a_hull_radius <- 
     renderText(paste0("Alpha hull radius: ", round(1 / a_hull_alpha(), 2)))
   
+  ## dat_raw(); rescaled input data -----
   dat_raw <- reactive({
     if (input$dat == "grid cube") {
-      load(file = "./data/df_func_surface2.rda") ## Brings df into global environment.
-      return(df[, 1:3])
+      return(df[, 1:3]) ## df from load(file = "./data/df_func_surface2.rda")
     }
     if (input$dat == "simulation") {
       ## Remove spaces
@@ -123,7 +125,8 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       ## rescale to [0,1]
       sim_std <- tourr::rescale(sim)
       ## Discretize to grid
-      sim_std_disc <- apply(sim_std, 2, function(x) round(x, 1))
+      sim_std_disc <- apply(sim_std, 2, function(x) round(x, 1)) %>%
+        as.data.frame()
       
       return(sim_std_disc)
     }
@@ -144,6 +147,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     col_of(class)
   })
   
+  ## dat_func(); apply function -----
   dat_func <- reactive({
     dat_raw <- dat_raw()
     IS_numeric_col <- apply(dat_raw, 2, function(x) all(is.numeric(x)))
@@ -167,7 +171,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     as.data.frame(ret)
   })
   bd_col_nms <- reactive({
-    dat <- dat_func()
+    dat <- dat_raw()
     p <- ncol(dat)
     x_num <- 1 ## Could change to input or hold one out style
     y_num <- 2 ## Could change to input or hold one out style
@@ -175,59 +179,51 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     colnames(dat)[-c(x_num, y_num, z_num)] ## Column numbers of dim not displayed
   })
   fd_col_nms <- reactive({
-    dat <- dat_func()
-    p <- ncol(dat)
+    dat <- dat_raw()
     x_num <- 1 ## Could change to input or hold one out style
     y_num <- 2 ## Could change to input or hold one out style
-    z_num <- p ## Could be any function, but should be appended to end
-    colnames(dat)[c(x_num, y_num, z_num)] ## Column numbers of dim not displayed
+    colnames(dat)[c(x_num, y_num)] ## Column numbers of dim not displayed
   })
   dat_bd <- reactive({
-    dat_func()[bd_col_nms()]
+    dat_raw()[bd_col_nms()]
   })
   dat_fd <- reactive({
-    dat_func()[fd_col_nms()]
+    dat_raw()[fd_col_nms()]
   })
   
+  ## dat_star(); obs in backdimensions -----
   dat_star <- reactive({
-    ## Data frame of full sample the back dimension data
-    dat_bd     <- dat_bd()
-    ncol_bd    <- ncol(dat_bd)
-    dat        <- dat_func()
-    dat$rownum <- 1:nrow(dat)
-    if (ncol_bd == 0) {
-      colnames(dat) <- c("x1", "x2", "z_agg", "rownum")
-      dat_star <- dat %>%
-        tourr::rescale() %>%
-        as.data.frame()
-      return(dat_star)
-    }
-    req(input$bd_slice_1)
-    ## Subset to only the rows within all back dimension slices
-    IS_in_bd_slice_mat  <- NULL ## Logical matrix of rows in each back dimenion slice
-    IS_in_all_bd_slices <- T    ## Logical vector of rows in ALL back dimenion slices
-    for(i in 1:ncol_bd){
-      dim         <- dat_bd[, i]
-      slice       <- input[[paste0("bd_slice_", i)]]
-      lb          <- min(slice)
-      ub          <- max(slice)
-      IS_in_slice <- dim >= lb & dim <= ub ## Logical vector of rows within this .dim's slice.
-      IS_in_bd_slice_mat  <- cbind(IS_in_bd_slice_mat, IS_in_slice)
-      IS_in_all_bd_slices <- IS_in_all_bd_slices & IS_in_slice
-    }
-    if (sum(IS_in_all_bd_slices) == 0) stop("Currect slices of the back dimensions contain no observations.")
-    
-    IS_disp_col <- !(colnames(dat) %in% colnames(dat_bd))
-    ## A df subset (with all bd slice), of the front (display) dimensions
-    dat_star    <- dat[IS_in_all_bd_slices, IS_disp_col]
+    dat_bd   <- dat_bd()
+    ncol_bd  <- ncol(dat_bd)
+    dat_star <- dat_func()
+    dat_star$rownum <- 1:nrow(dat_star)
     
     ## Agggregate the function values within bd slices
     #req(input$bslice_agg)
     agg_func <- max ## case when doesn't want to return functions; closure not subsettable.
-      # if(       input$bslice_agg == "max")    {max
-      # } else if(input$bslice_agg == "mean")   {mean
-      # } else if(input$bslice_agg == "median") {median
-      # } else if(input$bslice_agg == "min")    {min}
+    # if(       input$bslice_agg == "max")    {max
+    # } else if(input$bslice_agg == "mean")   {mean
+    # } else if(input$bslice_agg == "median") {median
+    # } else if(input$bslice_agg == "min")    {min}
+    if (ncol_bd != 0) {
+      req(input$bd_slice_1)
+      ## Subset to only the rows within all back dimension slices
+      IS_in_bd_slice_mat  <- NULL ## Logical matrix of rows in each back dimenion slice
+      IS_in_all_bd_slices <- T    ## Logical vector of rows in ALL back dimenion slices
+      for(i in 1:ncol_bd){
+        dim         <- dat_bd[, i]
+        slice       <- input[[paste0("bd_slice_", i)]]
+        lb          <- min(slice)
+        ub          <- max(slice)
+        IS_in_slice <- dim >= lb & dim <= ub ## Logical vector of rows within this .dim's slice.
+        IS_in_bd_slice_mat  <- cbind(IS_in_bd_slice_mat, IS_in_slice)
+        IS_in_all_bd_slices <- IS_in_all_bd_slices & IS_in_slice
+      }
+      if (sum(IS_in_all_bd_slices) == 0) stop("Currect slices of the back dimensions contain no observations.")
+      
+      ## A df subset (with all bd slice), of the front (display) dimensions
+      dat_star    <- dat_star[IS_in_all_bd_slices, ]
+    }
     
     colnames(dat_star) <- c("x1", "x2", "func", "rownum")
     dat_star <- dplyr::group_by(dat_star, x1, x2) %>%
@@ -236,10 +232,9 @@ server <- shinyServer(function(input, output, session) { ## Session required.
                        z_min = min(func),
                        z_max = max(func),
                        rownum = first(rownum)) %>%
-      tourr::rescale() %>%
       as.data.frame()
-      
-    ## Return df of aggregated dat_star; rows in all bd slices, columns: x1:x2, y_mn, y_min, y_man
+    
+    ## Return df of aggregated dat_star; rows in all bd slices, columns: x1:x2, z_agg, z_min, z_max, rownum
     dat_star
   })
   
@@ -249,12 +244,13 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   full_ashape <- reactive({
     dat_star_3mat  <- as.matrix(dat_star()[c("x1", "x2", "z_agg")])
     ## Possible alpha values for the a_hull_alpha()
-    a_hull_alpha_seq <- seq(.1, 10, by = .1) ## fixed to 1 atm
+    a_hull_alpha_seq <- seq(1, 20, by = 1) ## fixed to 1 atm
     ## ashape3d obj of all alphas and all shapes (tetra, triang, edge, vertex, x)
     alphashape3d::ashape3d( ## Expects numeric matrix in 3 dimensions.
       x = dat_star_3mat, alpha = a_hull_alpha_seq, pert = TRUE)
   })
   
+  ## Render scene -----
   scene_functionVis <- reactive({
     req(dat_star())
     ##### Init a_hull triangles via alphashape3d::ashape3d()
@@ -272,9 +268,9 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     
     ## Aesthetic init
     dat_star   <- dat_star()
-    
+    agg_nm     <- "max" #input$bslice_agg 
     bd_col_nms <- bd_col_nms()
-    fd_col_nms <- fd_col_nms()
+    fd_col_nms <- c(fd_col_nms(), paste0("z, z_", agg_nm))
     labs <- paste0(c("x, ", "y, ", "z, "), fd_col_nms)
     if(all.equal(dat_star$z_min, dat_star$z_max) == FALSE)
       labs[3] <- paste0("z, mean of ", fd_col_nms(3))
@@ -319,7 +315,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   
   ##### Back dimensions ui ----
   output$back_dimensions_ui <- renderUI({
-    dat <- dat_func()
+    dat <- dat_raw()
     p   <- ncol(dat)
     dat_bd <- dat_bd()
     bd_col_nms <- colnames(dat_bd)
@@ -343,6 +339,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     lapply(i_s, function(i) { column(7, bd_slice_midpts[[i]]) })
   }) ## Assign output$back_dimensions_ui, closing RenderUI()
   
+  ## Back dimension histograms -----
   bd_histograms <- reactive({
     req(input$bd_slice_1)
     dat_bd <- dat_bd()

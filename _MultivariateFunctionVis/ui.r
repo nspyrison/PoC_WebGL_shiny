@@ -24,7 +24,7 @@ def_rel_h <- .25  ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
 
 functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'", fluidPage(
   sidebarPanel(width = 3, fluidRow(
-    selectInput("dat", label = "Data", choices = c("grid cube", "simulation")),
+    selectInput("dat", label = "Data", choices = c("simulation", "cube")),
     selectInput("numFunc", "Function to apply", choices = c("kde2d", "dmvnorm")),
     conditionalPanel(
       "input.dat == 'simulation'",
@@ -47,8 +47,8 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
            conditionalPanel(
              "input.DO_DISP_a_hull_triang == true",
              numericInput("a_hull_alpha", label = "Alpha (~1/alpha hull",
-                          value = 1, #round(def_rel_h, 1),
-                          min = .1, max = 8, step = .1),
+                          value = 10, #round(def_rel_h, 1),
+                          min = 1, max = 20, step = 1),
              #verbatimTextOutput("a_hull_alpha"),
              verbatimTextOutput("a_hull_radius")
            )
