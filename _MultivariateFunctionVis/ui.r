@@ -53,10 +53,7 @@ backDimensionSlices_panel <- tabPanel("Slicing on back-dimenions", fluidPage(
     fluidRow(
       column(width = 2L, 
              h4("Front dimensions"),
-             h4("spacig guide"),
              plotOutput("fd_histograms"),
-             h4("spacig guide"),
-             h4("spacig guide"),
              h4("Back dimensions"),
              plotOutput("bd_histograms")
       ),

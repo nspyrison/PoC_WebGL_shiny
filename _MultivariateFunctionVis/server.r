@@ -275,7 +275,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     
     ##### rgl scene graphics 
     try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-    open3d(FOV = 0L, zoom = .8)
+    open3d(FOV = 0L, zoom = .8, windowRect = c(0,0,1200,1200))
     title3d(xlab = labs[1L], ylab = labs[2L], zlab = labs[3L])
     aspect3d(x_asp, y_asp, z_asp)
     bbox3d(xlen = num_bbox_ticks, ylen = num_bbox_ticks, zlen = num_bbox_ticks,

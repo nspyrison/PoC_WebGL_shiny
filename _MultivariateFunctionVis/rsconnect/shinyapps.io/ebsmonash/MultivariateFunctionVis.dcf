@@ -5,8 +5,9 @@ account: ebsmonash
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2639565
-bundleId: 3472221
+bundleId: 3480891
 url: https://ebsmonash.shinyapps.io/MultivariateFunctionVis/
-when: 1596522944.9874
+when: 1596688985.91371
 asMultiple: FALSE
 asStatic: FALSE
+ignoredFiles: www/rglwidgetaux.js
