@@ -17,12 +17,7 @@ def_rel_h <- .25  ## .25 as per [Laa et al. 2019] Hole or Grain 5.1 #3.
 
 
 ##### Start of shiny ui -----
-### Following: 
-## https://stackoverflow.com/questions/39363384/how-to-remove-unwanted-text-output-with-shiny-rgl
-# shiny::runApp(system.file("shinyDemo",  package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
-# shiny::runApp(system.file("shinySimple", package = "rgl"), launch.browser = TRUE, display.mode = "showcase")
-
-functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'", fluidPage(
+backDimensionSlices_panel <- tabPanel("Slicing on back-dimenions", fluidPage(
   sidebarPanel(width = 3L, fluidRow(
     selectInput("dat", label = "Data", choices = c("simulation", "cube")),
     selectInput("func_nm", "Function to apply", choices = c("kde2d", "dmvnorm")),
@@ -37,7 +32,7 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
     #             choices =  c("max", "mean", "median", "min")),
     numericInput("tgt_rel_h", "Target fraction of backdimension volume (slice widths adjust to x^(1/p-d))",
                  value = def_rel_h, min = .05, max = 1L, step = .05),
-    uiOutput("back_dimensions_ui"),
+    uiOutput("bd_slices_ui"),
     column(width = 6L,
            shinyWidgets::switchInput(inputId = "DO_DISP_a_hull_triang", 
                                      label = "Display alpha hull triangles", 
@@ -56,18 +51,28 @@ functionSurfaces_panel <- tabPanel("function vis -- slicing on 'back variables'"
   )), ## Close sidebarPanel()
   mainPanel(
     fluidRow(
-      column(width = 2L, plotOutput("bd_histograms")),
-      column(width = 10L, rglwidgetOutput("widget_functionVis", w, h))
+      column(width = 2L, 
+             h4("Front dimensions"),
+             h4("spacig guide"),
+             plotOutput("fd_histograms"),
+             h4("spacig guide"),
+             h4("spacig guide"),
+             h4("Back dimensions"),
+             plotOutput("bd_histograms")
+      ),
+      column(width = 10L, 
+             rglwidgetOutput("widget_functionVis", w, h)
+      )
     )
   ) ## Close mainPanel()
-)) ## Close tabPanel(), assigning functionSurfaces_panel
+)) ## Close tabPanel(), assigns backDimensionSlices_panel
 
 
 ##### ui -----
 ## Bring the panels together for full UI
 ui <- fluidPage(
-  navbarPage("functionVis",
-             functionSurfaces_panel
+  navbarPage("Multivariate Function Visualization",
+             backDimensionSlices_panel
   )
 )
 

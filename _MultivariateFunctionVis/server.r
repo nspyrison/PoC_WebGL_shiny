@@ -263,7 +263,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     func_nm    <- input$func_nm
     agg_nm     <- "max" #input$bslice_agg 
     bd_col_nms <- colnames(dat_bd())
-    fd_col_nms <- c(colnames(dat_fd()), paste0(func_nm, "_", agg_nm))
+    fd_col_nms <- c(colnames(dat_fd()), paste0(agg_nm, " ", func_nm))
     labs <- paste0(c("x, ", "y, ", "z, "), fd_col_nms)
     if(all.equal(dat_star$z_min, dat_star$z_max) == FALSE)
       labs[3] <- paste0("z, ", fd_col_nms(3L))
@@ -275,11 +275,15 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     
     ##### rgl scene graphics 
     try(rgl.close(), silent = T) ## Shiny doesn't like rgl.clear() or purrr::
-    open3d(FOV = 0L, zoom = 1L)
+    open3d(FOV = 0L, zoom = .8)
     title3d(xlab = labs[1L], ylab = labs[2L], zlab = labs[3L])
     aspect3d(x_asp, y_asp, z_asp)
     bbox3d(xlen = num_bbox_ticks, ylen = num_bbox_ticks, zlen = num_bbox_ticks,
            color = col_bbox , alpha = alpha_bbox, emission = col_bg, lwd = 1L)
+    #par3d(windowRect = c(0,0,1600,1600), zoom = .7)
+    ## Change h/w in ui, applied to rglWidgetOutput().
+    ## Zoom is 1/magification, applied in open3d(), above.
+    
     
     ### Data point Spheres
     spheres3d(x = dat_star[, 1], y = dat_star[, 2], z = dat_star[, 3],
@@ -306,8 +310,8 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     rglwidget(scene_functionVis())
   )
   
-  ##### Back dimensions ui ----
-  output$back_dimensions_ui <- renderUI({
+  ##### Back dimension slices ui ----
+  output$bd_slices_ui <- renderUI({
     dat <- dat_raw()
     p   <- ncol(dat)
     dat_bd <- dat_bd()
@@ -329,9 +333,58 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     })
     
     ## Layout the midpoint and width sliders in a row
-    lapply(i_s, function(i) { column(7, bd_slice_midpts[[i]]) })
+    lapply(i_s, function(i) { bd_slice_midpts[[i]] })
   }) ## Assign output$back_dimensions_ui, closing RenderUI()
   
+  ## Front dimension histograms -----
+  fd_histograms <- reactive({
+    ### fd histograms:
+    dat_fd <- dat_fd()#dat_func()
+    bd_col_nms <- colnames(dat_fd)
+    i_s <- 1:ncol(dat_fd)
+    
+    ## Find aggregated stats for ear variable
+    df_fd_stats <- NULL
+    for (i in i_s) {
+      dim <- dat_fd[, i]
+      den <- density(dim)
+      
+      var_nm <- as.factor(bd_col_nms[i])
+      x_min  <- min(den$x)
+      x_max  <- max(den$x)
+      y_min  <- min(den$y)
+      y_max  <- max(den$y)
+      asp_r  <- .4 * (y_max - y_min) / (x_max - x_min)
+      
+      this_fd_stats <- data.frame(var_nm = var_nm,
+                                  x_min  = x_min,
+                                  x_max  = x_max,
+                                  y_min  = y_min,
+                                  y_max  = y_max,
+                                  asp_r  = asp_r)
+      df_fd_stats <- rbind(df_fd_stats, this_fd_stats)
+    }
+    
+    ## Pivot longer the back dimensions for faceting
+    tib_fd_long <- tidyr::pivot_longer(dat_fd, cols = 1:ncol(dat_fd),
+                                       names_to = "var_nm", values_to = "value")
+    # ## Left Join, the long table and the aggregated stats
+    tib_fd_long_stats <- dplyr::left_join(tib_fd_long, df_fd_stats,
+                                          by = "var_nm", copy = TRUE)
+    
+    ## Single column of stylized histograms of each backdimension
+    fd_hists <- ggplot(data = tib_fd_long_stats, aes(x = value)) +
+      geom_rug(aes(y = 0L), size = 1L) + #, position = "jitter") +
+      geom_density(alpha = .3, fill = "red") +
+      labs(x = var_nm) +
+      facet_wrap(~ var_nm, ncol = 1L) +
+      theme_void()
+    ## Return
+    fd_hists
+  })
+  output$fd_histograms <- renderPlot(fd_histograms(), height = 200, width = 200)
+    
+    
   ## Back dimension histograms -----
   bd_histograms <- reactive({
     req(input$bd_slice_1)
@@ -362,6 +415,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
                                   x_max  = x_max,
                                   y_min  = y_min,
                                   y_max  = y_max,
+                                  asp_r  = asp_r,
                                   lb     = lb,
                                   ub     = ub)
       df_bd_stats <- rbind(df_bd_stats, this_bd_stats)
@@ -369,11 +423,10 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     
     ## Pivot longer the back dimensions for faceting
     tib_bd_long <- tidyr::pivot_longer(dat_bd, cols = 1:ncol(dat_bd),
-                                      names_to = "var_nm", values_to = "value")
+                                       names_to = "var_nm", values_to = "value")
     # ## Left Join, the long table and the aggregated stats
     tib_bd_long_stats <- dplyr::left_join(tib_bd_long, df_bd_stats,
-                                           by = "var_nm", copy = TRUE)
-    
+                                          by = "var_nm", copy = TRUE)
     
     ## Single column of stylized histograms of each backdimension
     bd_hists <- ggplot(data = tib_bd_long_stats, aes(x = value)) +
@@ -384,24 +437,15 @@ server <- shinyServer(function(input, output, session) { ## Session required.
                  color = "blue", linetype = "dashed", size = 1L) +
       geom_vline(aes(xintercept = lb), color = "blue", size = 1L) +
       geom_vline(aes(xintercept = ub), color = "blue", size = 1L) +
-      geom_rug(aes(y = 0L), size = 1L, position = "jitter") +
+      geom_rug(aes(y = 0L), size = 1L) + #, position = "jitter") +
       geom_density(alpha = .3, fill = "red") +
       labs(x = var_nm) +
       facet_wrap(~ var_nm, ncol = 1L) +
-      theme_void() +
-      coord_cartesian(xlim = c(x_min, x_max), 
-                      ylim = c(y_min, y_max))
-    
-    gg_blank <- ggplot() + theme_void()
-    
-    ## Display in order with white space at the top to allign with sliders.
-    bd_histograms <- cowplot::plot_grid(
-      gg_blank, bd_hists, ncol = 1L
-    )
-    
-    bd_histograms
+      theme_void()
+    ## Return
+    bd_hists
   })
-  output$bd_histograms <- renderPlot(bd_histograms())
+  output$bd_histograms <- renderPlot(bd_histograms(), height = 400, width = 200)
   
 }) ## Assign server function to be used in shinyApp()
 
