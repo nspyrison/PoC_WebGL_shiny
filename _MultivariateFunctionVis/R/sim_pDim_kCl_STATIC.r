@@ -5,8 +5,7 @@
 #' @param sigmas List, each element is a square (p, p) matrix, the 
 #' variance-covariance matrix for this cluster. If any matrix is not 
 #' positive definite, it will be coerced with `lqmm::make.positive.definite()`
-#' @param n_points List, each element is a single number of the points to sample 
-#' from this cluster.
+#' @param cl_points List, of number of observations within each cluster.
 #' @param method String specifying the matrix decomposition used find the 
 #' matrix root of `sigmas`. Expects, "eigen", the default, "svd", or "chol". 
 #' Also see `?mvtnorm::rmvnorm()`.
@@ -14,43 +13,43 @@
 #' to the rows and columns, Such that cluster rows are not all together and 
 #' signal columns are not in the same order.
 #' @examples 
-#' ## Goal ClSep: ~c(.8, 2, 0,0,0)
 #' mns <- list(c(10, 3, rep(0, 3)), c(2, 1, rep(0, 3)))
 #' covs <- list(diag(5), diag(5))
 #' sim_pDim_kCl(means = mns, sigmas = covs)
 #' 
-#' zz<- sim_pDim_kCl(means = mns, sigmas = covs, n_points = list(200, 50),
+#' sim_pDim_kCl(means = mns, sigmas = covs, cl_points = list(200, 50),
 #'              method = "svd", do_shuffle = FALSE)
-
+#'              
+#' x <-  sim_pDim_kCl(means = mns, sigmas = covs)
+#' clas <- attr(x, "cl_lvl")
+#' GGally::ggpairs(x, ggplot2::aes(color = clas))
 sim_pDim_kCl <- function(means, 
                          sigmas,
-                         n_points = rep(list(100), length(means)),
+                         cl_points = rep(list(100), length(means)),
                          method = c("eigen", "svd", "chol"),
                          do_shuffle = TRUE
 ) {
-  means <- as.list(means)
+  means  <- as.list(means)
   sigmas <- as.list(sigmas)
   method <- match.arg(method)
-  n_points <- as.list(n_points)
+  cl_points <- as.list(cl_points)
   p <- length(means[[1]])
   k <- length(means)
-  ## means and covariances are both of length k, clusters
+  ## Means and covariances are both of length k, clusters
   stopifnot(all(k == c(length(means), length(sigmas)))) 
-  ## elements of means and elements covariances have length, rows/cols p, number of numeric variables.
+  ## Elements of means and elements covariances have length, rows/cols p, number of numeric variables.
   stopifnot(all(p == c(length(means[[1]]), nrow(sigmas[[1]]), ncol(sigmas[[1]]))))
-  
   require("mvtnorm")
   require("lqmm")
-  set.seed(20200717)
   
   ## Create each cluster
   df_sim <- NULL
-  sim_means <- list()
-  sim_sigmas <- list()
+  cl_means <- list()
+  cl_sigmas <- list()
   for (i in 1:k) {
     ## Set sample size and partician sample if complex shape
-    .n <- n_points[[i]]
-    .mn <- means[[i]]
+    .n   <- cl_points[[i]]
+    .mn  <- means[[i]]
     .cov <- as.matrix(sigmas[[i]])
     
     ## Check if this sigma is positive definite.
@@ -58,19 +57,20 @@ sim_pDim_kCl <- function(means,
       warning(paste0("sigmas[[", i, "]] wasn't a positive definite matrix. Applied lqmm::make.positive.definite()."))
       .cov <- lqmm::make.positive.definite(.cov)
     }
+    if (isSymmetric.matrix(.cov) == FALSE) stop(paste0("sigma[[", i, "]] is not a symetric matrix, all covariance metrices must be symetric and positive definate."))
     
     ## Sample and store outputs
     .k <- mvtnorm::rmvnorm(n = .n, mean = .mn, sigma = .cov, method = method)
     df_sim <- rbind(df_sim, .k)
-    sim_means[[i]] <- as.vector(colMeans(.k))
-    sim_sigmas[[i]] <- cov(.k)
+    cl_means[[i]]  <- as.vector(colMeans(.k))
+    cl_sigmas[[i]] <- cov(.k)
   }
   df_sim <- as.data.frame(df_sim)
   
   ## Capture input args for attributed before anything could be reshuffled.
-  input_args <- list(means = means, sigmas = sigmas, n_points = n_points, 
-                     method = method, do_shuffle = do_shuffle)
-  cl_lvl <- paste0("cl ", rep(letters[1:k], unlist(n_points)))
+  input_args <- list(means = means, sigmas = sigmas, cl_points = cl_points, 
+                     method = method, do_shuffle = do_shuffle, sim_func = sim_pDim_kCl)
+  cl_lvl <- paste0("cl ", rep(letters[1:k], unlist(cl_points)))
   
   ## Reorder rows and columns if needed
   if(do_shuffle == TRUE) {
@@ -81,8 +81,8 @@ sim_pDim_kCl <- function(means,
     df_sim <- df_sim[row_ord, col_ord]
     cl_lvl <- cl_lvl[row_ord]
     for (i in 1:k){
-      sim_means[[i]] <- sim_means[[i]][col_ord]
-      sim_sigmas[[i]] <- sim_sigmas[[i]][col_ord, col_ord]
+      cl_means[[i]]  <- cl_means[[i]][col_ord]
+      cl_sigmas[[i]] <- cl_sigmas[[i]][col_ord, col_ord]
     }
   }
   
@@ -93,8 +93,8 @@ sim_pDim_kCl <- function(means,
   ## Record attributes
   attr(df_sim, "cl_lvl")     <- cl_lvl     ## Cluster levels
   attr(df_sim, "input_args") <- input_args ## List of parameters
-  attr(df_sim, "sim_means")  <- sim_means  ## List of the simulations means, after shuffle applied if needed
-  attr(df_sim, "sim_sigmas") <- sim_sigmas ## List of the simulations covariance matrices, after shuffle applied if needed
+  attr(df_sim, "cl_means")   <- cl_means   ## List of the simulations means, after shuffle applied if needed
+  attr(df_sim, "cl_sigmas")  <- cl_sigmas  ## List of the simulations covariance matrices, after shuffle applied if needed
   
   return(df_sim)
 }

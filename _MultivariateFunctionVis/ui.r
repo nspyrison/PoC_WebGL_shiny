@@ -42,16 +42,14 @@ backDimensionSlices_panel <- tabPanel("Slicing on back dimensions", fluidPage(
     column(width = 6L,
            shinyWidgets::switchInput(inputId = "DO_DISP_a_hull_triang", 
                                      label = "Display alpha hull triangles", 
-                                     value = FALSE)
+                                     value = TRUE)
     ),
     column(width = 6L,
            conditionalPanel(
              "input.DO_DISP_a_hull_triang == true",
              numericInput("a_hull_alpha", label = "Alpha (~1/alpha hull",
-                          value = 10L, #round(def_rel_h, 1),
-                          min = 1L, max = 20L, step = 1L),
-             #verbatimTextOutput("a_hull_alpha"),
-             verbatimTextOutput("a_hull_radius")
+                          value = .15, #round(def_rel_h, 1),
+                          min = .1, max = .2, step = .01)
            )
     )
   )), ## Close sidebarPanel()

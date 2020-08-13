@@ -45,11 +45,6 @@ server <- shinyServer(function(input, output, session) { ## Session required.
     req(input$grid_pts)
     input$grid_pts
   })
-  a_hull_alpha <- reactive(input$a_hull_alpha)
-  output$a_hull_alpha <- 
-    renderText(paste0("Alpha: ", round(a_hull_alpha(), 2L)))
-  output$a_hull_radius <- 
-    renderText(paste0("Alpha hull radius: ", round(1 / a_hull_alpha(), 2L)))
   
   ## 1) dat_raw(); rescaled input data -----
   dat_raw <- reactive({
@@ -78,7 +73,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       ## Simulate
       sim <- sim_pDim_kCl(means = mns, 
                           sigmas = sigs,
-                          n_points = rep(list(1000), length(mns)),
+                          cl_points = rep(list(1000), length(mns)),
                           method = "eigen",
                           do_shuffle = FALSE)
       ## rescale to [0,1]
@@ -147,6 +142,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       den2d <- MASS::kde2d(dat_star[, 1L], dat_star[, 2L], n = grid_pts())
       den2d_cross_join <- merge(den2d$x, den2d$y, all = TRUE)
       dat_func <- data.frame(den2d_cross_join, as.vector(den2d$z))
+
     }
     if (input$func_nm == "dmvnorm"){
       ## dmvnorm on ALL var, subset to the bd slices
@@ -156,7 +152,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       print(col_mns)
       print(covar)
       dmvn <- mvtnorm::dmvnorm(dat_star, mean = col_mns, sigma = covar)
-      dat_func <- cbind(dat_fd_star, dmvn)
+      dat_func <- cbind(dat_star[, 1:2], dmvn)
     }
     ## Rescale is crutial for a hull to work disp aspect ratio.
     dat_func <- tourr::rescale(dat_func) %>%
@@ -185,9 +181,9 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   #### Delaunay triangulations maximizes the smallest angle of the triangles to avoid sliver triangles.
   full_ashape <- reactive({
     if(input$DO_DISP_a_hull_triang == TRUE){
-      dat_star_3mat <- as.matrix(dat_func())
-      ## Possible alpha values for the a_hull_alpha()
-      a_hull_alpha_seq <- seq(1L, 20L, by = 1L)
+      dat_star_3mat <- as.matrix(dat_func()[, 1L:3L])
+      ## Possible alpha values for the input$a_hull_alpha
+      a_hull_alpha_seq <- seq(.1, .2, by = .01)
       ## ashape3d obj of all alphas and all shapes (tetra, triang, edge, vertex, x)
       ret <- alphashape3d::ashape3d( ## Expects numeric matrix in 3 dimensions.
         x = dat_star_3mat, alpha = a_hull_alpha_seq, pert = TRUE)
@@ -232,7 +228,7 @@ server <- shinyServer(function(input, output, session) { ## Session required.
       ## Grab only the triangles from the 3D Delaunay triangulation
       ashape_triang  <- suppressWarnings(full_ashape()$triang) ## Suppresses: "Warning: Duplicate points were removed."
       ## Column name specifying the current alpha value:
-      alpha_col_nm    <- paste0("fc:", a_hull_alpha())
+      alpha_col_nm    <- paste0("fc:", input$a_hull_alpha)
       alpha_col_num   <- which(colnames(ashape_triang) == alpha_col_nm)
       ## rows of the exterior triangles
       rows_ext_triang <- ashape_triang[, alpha_col_num] == 2L
