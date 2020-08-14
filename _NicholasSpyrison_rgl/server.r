@@ -25,12 +25,15 @@ server <- shinyServer(function(input, output, session) { ## Session required.
   ##### rb2holes =====
   slider <- reactive(input$rb2holes_basis_slider)
   slider_t <- throttle(slider, millis = 50) 
-  output$slider_t <- renderText(slider_t())
+  output$slider_t <- renderText(paste0("Basis ", slider_t(), " of ", n_tpath_bases))
   ## Reactive function, throttled slider value, returning value every 'millis' milliseconds, 
   #### _ie_ "Try to return value even while manipulating slider every .05 sec."
   
-  updateSliderInput(session, "rb2holes_basis_slider", 
-                    value = 1, step = 1, min = 1, max = n_tpath_bases)
+  output$rb2holes_basis_slider <- renderUI({
+      sliderInput(inputId = "rb2holes_basis_slider", label = "Basis number",
+                  min = 1L, value = 1L, max = n_tpath_bases, step = 1L,  
+                  animate = animationOptions(interval = 200, loop = TRUE))
+  })
   
   rb2holes_rglwidget <- reactive({
     req(slider_t()) ## req(x) works, validate(need(x)) does not.

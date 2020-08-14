@@ -86,8 +86,7 @@ w <- h <- "600px" ## height and width of the rgl widget in pixels,
 rb2holes_panel <- tabPanel("rb2holes", fluidPage(
   mainPanel(
     h2("Guided tour from a random basis to holes() @: step_size = .6, d = 3"),
-    sliderInput("rb2holes_basis_slider", label = "Basis number", 
-                value = 1, min = 1, max = 100, animate = TRUE),
+    uiOutput("rb2holes_basis_slider"),
     textOutput("slider_t"),
     rglwidgetOutput("widget_rb2holes", width = w, height = h)
   )
@@ -164,16 +163,6 @@ functionSurfaces_panel <- tabPanel("functionSurfaces", fluidPage(
   )
 ))
 
-##### rb2holes  -----
-## tourr guided tour from pca to cmass.
-rb2holes_panel <- tabPanel("rb2holes", fluidPage(
-  mainPanel(
-    h2("Guided tour from a random basis to holes(), step_size = .6, d = 3 ;; 10 bases"),
-    sliderInput("rb2holes_basis_slider", label = "Basis number", 
-                value = 1, min = 1, max = 1),
-    rglwidgetOutput("widget_rb2holes", width = w, height = h)
-  )
-))
 
 ##### widget_rotation  -----
 rgl_widget_rotation <- function(inputId, value="", nrows, ncols) {
@@ -197,8 +186,8 @@ widget_rotation_panel <- tabPanel("widget rotation", fluidPage(
 ui <- fluidPage(
   h2("Nicholas Spyrison, 2020/05/29"),
   navbarPage("WebGL 3D visualizations, `rgl` package",
-             functionSurfaces_panel,
              rb2holes_panel,
+             functionSurfaces_panel,
              widget_rotation_panel,
              pca_kde3d_panel,
              pca_kde2d_panel,
